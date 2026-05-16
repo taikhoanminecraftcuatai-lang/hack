@@ -14,7 +14,7 @@ local UIS =
 --========================
 
 local gui = Instance.new("ScreenGui")
-gui.Name = "PORTAL_AB_GUI"
+gui.Name = "hack hữu ích"
 gui.Parent = game.CoreGui
 
 -- OPEN BUTTON
