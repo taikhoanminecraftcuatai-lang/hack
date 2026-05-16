@@ -14,7 +14,7 @@ local UIS =
 --========================
 
 local gui = Instance.new("ScreenGui")
-gui.Name = "hack hữu ích"
+gui.Name = "PORTAL_AB_GUI"
 gui.Parent = game.CoreGui
 
 -- OPEN BUTTON
@@ -1038,50 +1038,47 @@ RunService.RenderStepped:Connect(function()
 	end
 end)
 --========================
--- ORBIT + HEAD AIM SYSTEM
+-- HEAD LOCK SYSTEM
 --========================
 
-local orbitEnabled = false
-local orbitTarget = nil
+local headLockEnabled = false
+local headTarget = nil
 
--- BUTTON
-local orbitButton =
+local headButton =
 	makeButton(
-		"ORBIT HEAD : OFF",
+		"HEAD LOCK : OFF",
 		UDim2.new(0.08,0,0.58,0),
 		Color3.fromRGB(0,170,255)
 	)
 
-click(orbitButton)
+click(headButton)
 
--- TOGGLE
-orbitButton.MouseButton1Click:Connect(function()
+headButton.MouseButton1Click:Connect(function()
 
-	orbitEnabled =
-		not orbitEnabled
+	headLockEnabled =
+		not headLockEnabled
 
-	if orbitEnabled then
+	if headLockEnabled then
 
-		orbitButton.Text =
-			"ORBIT HEAD : ON"
+		headButton.Text =
+			"HEAD LOCK : ON"
 
-		orbitButton.BackgroundColor3 =
+		headButton.BackgroundColor3 =
 			Color3.fromRGB(255,70,70)
 
 	else
 
-		orbitButton.Text =
-			"ORBIT HEAD : OFF"
+		headButton.Text =
+			"HEAD LOCK : OFF"
 
-		orbitButton.BackgroundColor3 =
+		headButton.BackgroundColor3 =
 			Color3.fromRGB(0,170,255)
 
-		orbitTarget = nil
+		headTarget = nil
 	end
 end)
 
--- FIND NEAREST PLAYER
-local function getNearestOrbitPlayer()
+local function getNearestTarget()
 
 	local nearest = nil
 	local distance = math.huge
@@ -1105,15 +1102,9 @@ local function getNearestOrbitPlayer()
 
 		if plr ~= player
 		and plr.Character
-		and plr.Character:FindFirstChild(
-			"HumanoidRootPart"
-		)
-		and plr.Character:FindFirstChild(
-			"Head"
-		)
-		and plr.Character:FindFirstChildOfClass(
-			"Humanoid"
-		)
+		and plr.Character:FindFirstChild("Head")
+		and plr.Character:FindFirstChild("HumanoidRootPart")
+		and plr.Character:FindFirstChildOfClass("Humanoid")
 		and plr.Character.Humanoid.Health > 0 then
 
 			local dist =
@@ -1136,68 +1127,51 @@ local function getNearestOrbitPlayer()
 	return nearest
 end
 
--- ORBIT LOOP
 RunService.RenderStepped:Connect(function()
 
-	if orbitEnabled then
-
-		local char =
-			player.Character
-
-		if not char then
-			return
-		end
-
-		local root =
-			char:FindFirstChild(
-				"HumanoidRootPart"
-			)
-
-		if not root then
-			return
-		end
-local target =
-	getNearestOrbitPlayer()
-		if target
-		and target.Character
-		and target.Character:FindFirstChild(
-			"Head"
-		) then
-
-			orbitTarget = target
-
-			local head =
-				target.Character.Head
-
-			-- BAY XOAY TRÊN ĐẦU
-			local angle =
-				tick() * 3
-
-			local radius = 6
-
-			local offset =
-				Vector3.new(
-					math.cos(angle)
-					* radius,
-
-					5,
-
-					math.sin(angle)
-					* radius
-				)
-
-			local pos =
-				head.Position + offset
-
-			root.CFrame =
-				CFrame.new(
-					pos,
-					head.Position
-				)
-		end
+	if not headLockEnabled then
+		return
 	end
-end)
---========================
+
+	local char =
+		player.Character
+
+	if not char then
+		return
+	end
+
+	local root =
+		char:FindFirstChild(
+			"HumanoidRootPart"
+		)
+
+	if not root then
+		return
+	end
+
+	local target =
+		getNearestTarget()
+
+	if target
+	and target.Character
+	and target.Character:FindFirstChild("Head") then
+
+		local head =
+			target.Character.Head
+
+		-- BAY TRÊN ĐẦU
+		local pos =
+			head.Position
+			+ Vector3.new(0,5,0)
+
+		-- AIM VÀO ĐẦU
+		root.CFrame =
+			CFrame.new(
+				pos,
+				head.Position
+			)
+	end
+end)--========================
 -- SPEED SYSTEM
 --========================
 
