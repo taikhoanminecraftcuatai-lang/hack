@@ -525,51 +525,64 @@ RunService.RenderStepped:Connect(function()
 	end
 end)
 --========================
--- SERVER HOP
+-- SPIN BOT
 --========================
 
-local TeleportService =
-	game:GetService("TeleportService")
+local spinEnabled = false
 
-local HttpService =
-	game:GetService("HttpService")
-
-local serverButton =
+local spinButton =
 	makeButton(
-		"SERVER HOP",
+		"SPIN BOT",
 		UDim2.new(0.35,0,0.25,0),
-		Color3.fromRGB(0,200,120)
+		Color3.fromRGB(170,0,255)
 	)
 
-click(serverButton)
+click(spinButton)
 
-serverButton.MouseButton1Click:Connect(function()
+spinButton.MouseButton1Click:Connect(function()
 
-	local PlaceID =
-		game.PlaceId
+	spinEnabled = not spinEnabled
 
-	local servers =
-		game:HttpGet(
-			"https://games.roblox.com/v1/games/"
-			..PlaceID..
-			"/servers/Public?sortOrder=Asc&limit=100"
-		)
+	if spinEnabled then
 
-	local data =
-		HttpService:JSONDecode(servers)
+		spinButton.Text =
+			"SPIN : ON"
 
-	for _,v in pairs(data.data) do
+		spinButton.BackgroundColor3 =
+			Color3.fromRGB(255,70,70)
 
-		if v.playing < v.maxPlayers
-		and v.id ~= game.JobId then
+	else
 
-			TeleportService:TeleportToPlaceInstance(
-				PlaceID,
-				v.id,
-				player
+		spinButton.Text =
+			"SPIN BOT"
+
+		spinButton.BackgroundColor3 =
+			Color3.fromRGB(170,0,255)
+	end
+end)
+
+RunService.RenderStepped:Connect(function()
+
+	if not spinEnabled then
+		return
+	end
+
+	local char =
+		player.Character
+
+	if char
+	and char:FindFirstChild("HumanoidRootPart") then
+
+		local root =
+			char.HumanoidRootPart
+
+		root.CFrame =
+			root.CFrame
+			*
+			CFrame.Angles(
+				0,
+				math.rad(25),
+				0
 			)
-
-			break
-		end
 	end
 end)
