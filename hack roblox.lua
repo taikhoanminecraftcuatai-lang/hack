@@ -314,11 +314,11 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 --========================
--- ĐÁNH CỰC NHANH (AUTO SWING)
+-- ĐÁNH CỰC NHANH (AUTO SWING) - ĐÃ SỬA LỖI
 --========================
 
 local fastAttackEnabled = false
-local attackDelay = 0.05  -- Đánh mỗi 0.05 giây (cực nhanh)
+local attackDelay = 0.05
 
 local attackBtn = makeButton("⚡ ĐÁNH NHANH", 1, 2, Color3.fromRGB(200, 100, 0))
 
@@ -334,12 +334,9 @@ local function updateAttackButton()
     end
 end
 
--- Tìm tool đang cầm trên tay
 local function getCurrentTool()
     local char = player.Character
     if not char then return nil end
-    
-    -- Tool đang cầm trên tay
     for _, tool in pairs(char:GetChildren()) do
         if tool:IsA("Tool") then
             return tool
@@ -348,41 +345,33 @@ local function getCurrentTool()
     return nil
 end
 
--- Kích hoạt đánh (gửi yêu cầu đánh lên server)
 local function swing()
     local tool = getCurrentTool()
     if not tool then return end
     
-    -- Cách 1: Click vào tool (mô phỏng chuột)
     local clickEvent = tool:FindFirstChild("ClickEvent")
     if clickEvent and clickEvent:IsA("RemoteEvent") then
         clickEvent:FireServer()
     end
     
-    -- Cách 2: Kích hoạt remote thường dùng trong game Vietnam
     local remote = tool:FindFirstChild("RemoteEvent") or tool:FindFirstChild("Activate")
     if remote and remote:IsA("RemoteEvent") then
         remote:FireServer()
     end
     
-    -- Cách 3: Gọi hàm Tool được kích hoạt
     local activate = tool:FindFirstChild("Activate")
     if activate and activate:IsA("BindableEvent") then
         activate:Fire()
     end
     
-    -- Cách 4: Mô phỏng nhấn chuột vào tool (dành cho tool có Handle)
     local handle = tool:FindFirstChild("Handle")
     if handle and handle:IsA("BasePart") then
-        -- Tạo sự kiện nhấp chuột giả
         local clickDetector = handle:FindFirstChild("ClickDetector")
         if clickDetector then
-            local mouse = player:GetMouse()
-            clickDetector.MouseClick:Fire(mouse)
+            clickDetector:Click()
         end
     end
     
-    -- Cách 5: Gửi RemoteEvent toàn thân (dành cho game có Remotes dạng riêng)
     local remoteEvent = game:GetService("ReplicatedStorage"):FindFirstChild("Attack") or 
                          game:GetService("ReplicatedStorage"):FindFirstChild("Swing")
     if remoteEvent and remoteEvent:IsA("RemoteEvent") then
@@ -390,37 +379,28 @@ local function swing()
     end
 end
 
--- Luồng đánh liên tục
-local attackLoop = nil
+local attackRunning = false
 
-local function startFastAttack()
-    if attackLoop then 
-        task.cancel(attackLoop)
-        attackLoop = nil
-    end
-    
-    attackLoop = coroutine.wrap(function()
-        while fastAttackEnabled do
-            swing()
-            task.wait(attackDelay)
-        end
-    end)
-    attackLoop()
-end
-
--- Bật/tắt khi nhấn nút
 attackBtn.MouseButton1Click:Connect(function()
     fastAttackEnabled = not fastAttackEnabled
     updateAttackButton()
     
     if fastAttackEnabled then
-        startFastAttack()
+        if attackRunning then return end
+        attackRunning = true
+        coroutine.wrap(function()
+            while fastAttackEnabled do
+                swing()
+                task.wait(attackDelay)
+            end
+            attackRunning = false
+        end)()
     end
 end)
 
--- Nếu đang bật mà mất tool thì vẫn tiếp tục chờ
 player.CharacterAdded:Connect(function()
     if fastAttackEnabled then
-        startFastAttack()
+        fastAttackEnabled = false
+        updateAttackButton()
     end
 end)
