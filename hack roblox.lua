@@ -586,3 +586,62 @@ RunService.RenderStepped:Connect(function()
 			)
 	end
 end)
+--========================
+-- FAST HIT
+--========================
+
+local fastAttack = false
+
+local fastButton =
+	makeButton(
+		"FAST HIT",
+		UDim2.new(0.65,0,0.55,0),
+		Color3.fromRGB(255,140,0)
+	)
+
+click(fastButton)
+
+fastButton.MouseButton1Click:Connect(function()
+
+	fastAttack = not fastAttack
+
+	if fastAttack then
+
+		fastButton.Text =
+			"HIT : ON"
+
+		fastButton.BackgroundColor3 =
+			Color3.fromRGB(255,70,70)
+
+	else
+
+		fastButton.Text =
+			"FAST HIT"
+
+		fastButton.BackgroundColor3 =
+			Color3.fromRGB(255,140,0)
+	end
+end)
+
+task.spawn(function()
+
+	while true do
+		task.wait(0.03)
+
+		if fastAttack then
+
+			local char =
+				player.Character
+
+			if char then
+
+				local tool =
+					char:FindFirstChildOfClass("Tool")
+
+				if tool then
+					tool:Activate()
+				end
+			end
+		end
+	end
+end)
