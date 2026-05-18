@@ -1,6 +1,7 @@
 --// SIMPLE GUI + KEY SYSTEM
 --// LocalScript
-
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 
@@ -23,12 +24,12 @@ gui.Enabled = false
 local open = Instance.new("TextButton")
 open.Parent = gui
 
-open.Size = UDim2.new(0,70,0,70)
+open.Size = UDim2.new(0,70,0,35)
 open.Position = UDim2.new(0,20,0.5,-35)
 
 open.Text = "MENU"
-open.TextScaled = true
-
+open.TextScaled = false
+open.TextSize = 12
 open.Font = Enum.Font.GothamBlack
 
 open.BackgroundColor3 =
@@ -375,8 +376,44 @@ end
 
 click(open)
 click(enter)
+local function makeButton(text,pos,color)
+
+	local b =
+		Instance.new("TextButton")
+
+	b.Parent = frame
+
+	b.Size =
+		UDim2.new(0,100,0,30)
+
+	b.Position = pos
+
+	b.Text = text
+
+	b.TextScaled = false
+	b.TextSize = 12
+
+	b.Font =
+		Enum.Font.GothamBold
+
+	b.BackgroundColor3 =
+		color
+
+	b.TextColor3 =
+		Color3.new(1,1,1)
+
+	b.BorderSizePixel = 0
+
+	Instance.new(
+		"UICorner",
+		b
+	).CornerRadius =
+		UDim.new(0,10)
+
+	return b
+end
 --========================
--- HARD LOOK LOCK SYSTEM
+-- LOOK LOCK SYSTEM
 --========================
 
 local lookEnabled = false
@@ -384,8 +421,8 @@ local camera = workspace.CurrentCamera
 
 local lookButton =
 	makeButton(
-		"LOOK LOCK : OFF",
-		UDim2.new(0.32,0,0.25,0),
+		"LOOK LOCK",
+		UDim2.new(0.05,0,0.25,0),
 		Color3.fromRGB(0,170,255)
 	)
 
@@ -398,7 +435,7 @@ lookButton.MouseButton1Click:Connect(function()
 	if lookEnabled then
 
 		lookButton.Text =
-			"LOOK LOCK : ON"
+			"LOCK : ON"
 
 		lookButton.BackgroundColor3 =
 			Color3.fromRGB(255,70,70)
@@ -406,10 +443,13 @@ lookButton.MouseButton1Click:Connect(function()
 	else
 
 		lookButton.Text =
-			"LOOK LOCK : OFF"
+			"LOOK LOCK"
 
 		lookButton.BackgroundColor3 =
 			Color3.fromRGB(0,170,255)
+
+		UIS.MouseBehavior =
+			Enum.MouseBehavior.Default
 	end
 end)
 
@@ -435,9 +475,7 @@ local function getNearestPlayer()
 		if plr ~= player
 		and plr.Character
 		and plr.Character:FindFirstChild("Head")
-		and plr.Character:FindFirstChild("HumanoidRootPart")
-		and plr.Character:FindFirstChild("Humanoid")
-		and plr.Character.Humanoid.Health > 0 then
+		and plr.Character:FindFirstChild("HumanoidRootPart") then
 
 			local dist =
 				(
@@ -474,24 +512,15 @@ RunService.RenderStepped:Connect(function()
 		local head =
 			target.Character.Head
 
-		-- LOCK CỨNG CAMERA
 		camera.CFrame =
-			CFrame.new(
-				camera.CFrame.Position,
-				head.Position
-			)
-
-		-- KHÓA CHUỘT
+	camera.CFrame:Lerp(
+		CFrame.new(
+			camera.CFrame.Position,
+			head.Position
+		),
+		0.35
+	)
 		UIS.MouseBehavior =
 			Enum.MouseBehavior.LockCenter
-	end
-end)
-
-UIS.InputEnded:Connect(function()
-
-	if not lookEnabled then
-
-		UIS.MouseBehavior =
-			Enum.MouseBehavior.Default
 	end
 end)
