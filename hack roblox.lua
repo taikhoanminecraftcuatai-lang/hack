@@ -320,15 +320,15 @@ end)
 local fastAttackEnabled = false
 local attackDelay = 0.05  -- Đánh mỗi 0.05 giây (cực nhanh)
 
-local attackBtn = makeButton("fast atta, 1, 2, Color3.fromRGB(200, 100, 0))
+local attackBtn = makeButton("⚡ ĐÁNH NHANH", 1, 2, Color3.fromRGB(200, 100, 0))
 
 local function updateAttackButton()
     if fastAttackEnabled then
-        attackBtn.Text = "fast attack[ON]"
+        attackBtn.Text = "⚡ ĐÁNH NHANH [ON]"
         attackBtn.BackgroundColor3 = Color3.fromRGB(220, 120, 0)
         status.Text = "STATUS : FAST ATTACK ON"
     else
-        attackBtn.Text = "fast attack"
+        attackBtn.Text = "⚡ ĐÁNH NHANH"
         attackBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
         status.Text = "STATUS : READY"
     end
