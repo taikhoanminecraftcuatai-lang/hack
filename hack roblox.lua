@@ -590,9 +590,6 @@ end)
 -- FAST HIT
 --========================
 
-local VirtualUser =
-	game:GetService("VirtualUser")
-
 local fastAttack = false
 
 local fastButton =
@@ -633,25 +630,25 @@ task.spawn(function()
 
 		if fastAttack then
 
-			VirtualUser:Button1Down(
-				Vector2.new(0,0),
-				workspace.CurrentCamera.CFrame
-			)
-
-			VirtualUser:Button1Up(
-				Vector2.new(0,0),
-				workspace.CurrentCamera.CFrame
-			)
-
 			local char =
 				player.Character
 
 			if char then
 
+				local humanoid =
+					char:FindFirstChildOfClass("Humanoid")
+
 				local tool =
 					char:FindFirstChildOfClass("Tool")
 
-				if tool then
+				if humanoid and tool then
+
+					for _,track in pairs(
+						humanoid:GetPlayingAnimationTracks()
+					) do
+						track:Stop()
+					end
+
 					tool:Activate()
 				end
 			end
