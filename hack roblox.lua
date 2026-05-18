@@ -314,35 +314,34 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 --========================
--- KILL AURA
+-- KILL AURA (NÂNG CẤP)
 --========================
 
 local killAuraEnabled = false
-local killRange = 80  -- Khoảng cách đánh (studs)
-local damageValue = 100  -- Sát thương (nếu game có hệ thống HP)
+local killRange = 60
 
--- Nút bật/tắt KILL AURA
 local killBtn = makeButton(" KILL AURA", 1, 2, Color3.fromRGB(120, 30, 40))
 
--- Hàm cập nhật nút
 local function updateKillButton()
     if killAuraEnabled then
         killBtn.Text = " KILL AURA [ON]"
         killBtn.BackgroundColor3 = Color3.fromRGB(160, 40, 50)
+        status.Text = "STATUS : KILL AURA ON"
     else
         killBtn.Text = " KILL AURA"
         killBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+        status.Text = "STATUS : READY"
     end
 end
 
--- Tìm người chơi gần nhất
-local function getClosestPlayerForKill()
-    local character = player.Character
-    if not character or not character:FindFirstChild("HumanoidRootPart") then
-        return nil
+-- Tìm người gần nhất
+local function getClosestEnemy()
+    local char = player.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then
+        return nil, math.huge
     end
     
-    local myPos = character.HumanoidRootPart.Position
+    local myPos = char.HumanoidRootPart.Position
     local closest = nil
     local closestDist = killRange + 1
     
@@ -352,7 +351,6 @@ local function getClosestPlayerForKill()
             if otherChar and otherChar:FindFirstChild("HumanoidRootPart") then
                 local otherPos = otherChar.HumanoidRootPart.Position
                 local dist = (myPos - otherPos).Magnitude
-                
                 if dist < closestDist then
                     closestDist = dist
                     closest = other
@@ -364,64 +362,154 @@ local function getClosestPlayerForKill()
     return closest, closestDist
 end
 
--- Tấn công mục tiêu
-local function attackTarget(target)
+-- Các cách tấn công khác nhau
+local function attackMethod1(targetChar)
+    -- Cách 1: Hạ trực tiếp Humanoid
+    local hum = targetChar:FindFirstChild("Humanoid")
+    if hum and hum.Health then
+        hum.Health = 0
+        return true
+    end
+    return false
+end
+
+local function attackMethod2(targetChar)
+    -- Cách 2: Dùng BodyVelocity hất văng
+    local root = targetChar:FindFirstChild("HumanoidRootPart")
+    if root then
+        local bv = Instance.new("BodyVelocity")
+        bv.MaxForce = Vector3.new(1,1,1) * math.huge
+        bv.Velocity = Vector3.new(0, 50, 0)
+        bv.Parent = root
+        task.wait(0.1)
+        bv:Destroy()
+        return true
+    end
+    return false
+end
+
+local function attackMethod3(targetChar)
+    -- Cách 3: Dùng Fire/Explosion (tạo sát thương từ môi trường)
+    local root = targetChar:FindFirstChild("HumanoidRootPart")
+    if root then
+        local explosion = Instance.new("Explosion")
+        explosion.Position = root.Position
+        explosion.BlastRadius = 5
+        explosion.BlastPressure = 100000
+        explosion.Parent = workspace
+        return true
+    end
+    return false
+end
+
+local function attackMethod4(targetChar)
+    -- Cách 4: Dùng Raycast bắn xuyên
+    local myChar = player.Character
+    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+    
+    if myRoot and targetRoot then
+        local direction = (targetRoot.Position - myRoot.Position).Unit
+        local ray = Ray.new(myRoot.Position, direction * killRange)
+        local hit, pos = workspace:FindPartOnRay(ray, myChar)
+        
+        if hit and hit:IsDescendantOf(targetChar) then
+            local hum = targetChar:FindFirstChild("Humanoid")
+            if hum then
+                hum.Health = 0
+                return true
+            end
+        end
+    end
+    return false
+end
+
+-- Hàm tấn công tổng hợp
+local function attackEnemy(target)
     if not target or not target.Character then
         return
     end
     
     local targetChar = target.Character
-    local targetHum = targetChar:FindFirstChild("Humanoid")
-    local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
-    local myChar = player.Character
-    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local success = false
     
-    if not targetHum or not targetRoot or not myRoot then
-        return
-    end
+    -- Thử từng cách
+    success = attackMethod1(targetChar)
+    if success then return end
     
-    -- Cách 1: Gây sát thương trực tiếp vào Humanoid (hiệu quả với hầu hết game)
-    targetHum.Health = targetHum.Health - damageValue
+    success = attackMethod4(targetChar)
+    if success then return end
     
-    -- Cách 2: Quay mặt về hướng mục tiêu (tuỳ chọn)
-    local lookDir = CFrame.new(myRoot.Position, targetRoot.Position)
-    myRoot.CFrame = lookDir
+    success = attackMethod3(targetChar)
+    if success then return end
     
-    -- Cách 3: Tạo hiệu ứng đánh (nếu có tool/vũ khí trong tay)
-    local char = myChar
+    attackMethod2(targetChar)
+end
+
+-- Auto swing khi có tool trong tay
+local function autoSwing()
+    local char = player.Character
+    if not char then return end
+    
     for _, tool in pairs(char:GetChildren()) do
         if tool:IsA("Tool") then
-            -- Kích hoạt tool nếu có
-            local activate = tool:FindFirstChild("Activate")
-            if activate and activate:IsA("BindableEvent") then
-                activate:Fire()
+            -- Kích hoạt tool
+            local remote = tool:FindFirstChild("RemoteEvent") or tool:FindFirstChild("Activate")
+            if remote and remote:IsA("RemoteEvent") then
+                remote:FireServer()
+            end
+            
+            -- Bắt chước click chuột
+            local clickEvent = tool:FindFirstChild("ClickEvent")
+            if clickEvent and clickEvent:IsA("RemoteEvent") then
+                clickEvent:FireServer()
+            end
+            
+            -- Tự động swing
+            local handle = tool:FindFirstChild("Handle")
+            if handle then
+                local humanoid = char:FindFirstChild("Humanoid")
+                if humanoid and humanoid:FindFirstChild("Animator") then
+                    -- Kích hoạt animation
+                    local animTrack = humanoid.Animator:LoadAnimation(tool:FindFirstChildWhichIsA("Animation"))
+                    if animTrack then
+                        animTrack:Play()
+                    end
+                end
             end
         end
     end
-    
-    -- Cách 4: Gửi yêu cầu tấn công qua remote (nếu game có)
-    -- (dành cho game phức tạp hơn)
 end
 
--- Luồng chính của Kill Aura
-RunService.RenderStepped:Connect(function()
-    if killAuraEnabled then
-        local target, dist = getClosestPlayerForKill()
-        
-        if target and dist <= killRange then
-            attackTarget(target)
+-- Luồng Kill Aura (chạy liên tục)
+coroutine.wrap(function()
+    while true do
+        if killAuraEnabled then
+            local target, dist = getClosestEnemy()
+            
+            if target and dist <= killRange then
+                -- Tấn công
+                attackEnemy(target)
+                
+                -- Tự động swing tool
+                autoSwing()
+                
+                -- Quay mặt về hướng mục tiêu
+                local myChar = player.Character
+                local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+                local targetChar = target.Character
+                local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
+                
+                if myRoot and targetRoot then
+                    myRoot.CFrame = CFrame.new(myRoot.Position, targetRoot.Position)
+                end
+            end
         end
+        task.wait(0.05)  -- Tấn công mỗi 0.05 giây
     end
-end)
+end)()
 
--- Nút bấm bật/tắt
 killBtn.MouseButton1Click:Connect(function()
     killAuraEnabled = not killAuraEnabled
     updateKillButton()
-    
-    if killAuraEnabled then
-        status.Text = "STATUS : KILL AURA ON"
-    else
-        status.Text = "STATUS : READY"
-    end
 end)
