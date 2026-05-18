@@ -1,4 +1,4 @@
---// SIMPLE GUI + KEY SYSTEM
+--// SIMPLE GUI + KEY SYSTEM + AIM LOCK
 --// LocalScript
 local RunService = game:GetService("RunService")
 local UIS = game:GetService("UserInputService")
@@ -42,8 +42,8 @@ Instance.new("UICorner", open).CornerRadius = UDim.new(1, 0)
 
 local frame = Instance.new("Frame")
 frame.Parent = gui
-frame.Size = UDim2.new(0, 450, 0, 350)
-frame.Position = UDim2.new(0.5, -225, 0.5, -175)
+frame.Size = UDim2.new(0, 450, 0, 400)
+frame.Position = UDim2.new(0.5, -225, 0.5, -200)
 frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 frame.Visible = false
 frame.Active = true
@@ -73,11 +73,11 @@ status.TextScaled = true
 status.Font = Enum.Font.GothamBold
 status.TextColor3 = Color3.new(1, 1, 1)
 
--- KHU VỰC ĐỂ NÚT (ĐỂ TRỐNG)
+-- KHU VỰC ĐỂ NÚT
 local buttonContainer = Instance.new("Frame")
 buttonContainer.Parent = frame
-buttonContainer.Size = UDim2.new(1, -40, 0, 200)
-buttonContainer.Position = UDim2.new(0, 20, 0.4, 0)
+buttonContainer.Size = UDim2.new(1, -40, 0, 250)
+buttonContainer.Position = UDim2.new(0, 20, 0.42, 0)
 buttonContainer.BackgroundTransparency = 1
 buttonContainer.Name = "ButtonContainer"
 
@@ -88,7 +88,7 @@ buttonContainer.Name = "ButtonContainer"
 local correctKey = "tailovuong"
 
 local whitelist = {
-    ["sidbuddb"] = true  -- Tên bạn
+    ["sidbuddb"] = true
 }
 
 local keyGui = Instance.new("ScreenGui")
@@ -103,7 +103,6 @@ keyFrame.BorderSizePixel = 0
 
 Instance.new("UICorner", keyFrame).CornerRadius = UDim.new(0, 18)
 
--- TITLE
 local keyTitle = Instance.new("TextLabel")
 keyTitle.Parent = keyFrame
 keyTitle.Size = UDim2.new(1, 0, 0, 60)
@@ -113,7 +112,6 @@ keyTitle.TextScaled = true
 keyTitle.Font = Enum.Font.GothamBlack
 keyTitle.TextColor3 = Color3.new(1, 1, 1)
 
--- TEXTBOX
 local keyBox = Instance.new("TextBox")
 keyBox.Parent = keyFrame
 keyBox.Size = UDim2.new(0.8, 0, 0, 50)
@@ -128,7 +126,6 @@ keyBox.BorderSizePixel = 0
 
 Instance.new("UICorner", keyBox).CornerRadius = UDim.new(0, 12)
 
--- ENTER BUTTON
 local enter = Instance.new("TextButton")
 enter.Parent = keyFrame
 enter.Size = UDim2.new(0.5, 0, 0, 45)
@@ -142,7 +139,6 @@ enter.BorderSizePixel = 0
 
 Instance.new("UICorner", enter).CornerRadius = UDim.new(0, 12)
 
--- STATUS
 local keyStatus = Instance.new("TextLabel")
 keyStatus.Parent = keyFrame
 keyStatus.Size = UDim2.new(1, 0, 0, 30)
@@ -210,7 +206,7 @@ click(open)
 click(enter)
 
 --========================
--- HÀM TẠO NÚT (ĐỂ DÙNG SAU)
+-- HÀM TẠO NÚT
 --========================
 
 local function makeButton(text, row, col, color)
@@ -230,6 +226,7 @@ local function makeButton(text, row, col, color)
     click(b)
     return b
 end
+
 --========================
 -- AIM LOCK (LOOK ĐẦU)
 --========================
@@ -237,24 +234,21 @@ end
 local aimbotEnabled = false
 local currentTarget = nil
 
--- Tạo nút bật/tắt AIM LOCK
-local aimBtn = makeButton("AIM LOCK", 1, 1, Color3.fromRGB(80, 50, 120))
+local aimBtn = makeButton(" AIM LOCK", 1, 1, Color3.fromRGB(80, 50, 120))
 
--- Cập nhật trạng thái nút
 local function updateAimButton()
     if aimbotEnabled then
-        aimBtn.Text = "AIM LOCK [ON]"
+        aimBtn.Text = " AIM LOCK [ON]"
         aimBtn.BackgroundColor3 = Color3.fromRGB(100, 70, 150)
         status.Text = "STATUS : AIM LOCK ON"
     else
-        aimBtn.Text = "AIM LOCK"
+        aimBtn.Text = " AIM LOCK"
         aimBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
         status.Text = "STATUS : READY"
         currentTarget = nil
     end
 end
 
--- Tìm người chơi gần nhất (theo khoảng cách thực tế)
 local function getClosestPlayer()
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then
@@ -272,7 +266,6 @@ local function getClosestPlayer()
                 local otherPos = otherChar.HumanoidRootPart.Position
                 local dist = (myPos - otherPos).Magnitude
                 
-                -- Chỉ aim trong khoảng cách nhất định (có thể tăng giảm)
                 if dist < closestDist and dist < 150 then
                     closestDist = dist
                     closest = other
@@ -284,7 +277,6 @@ local function getClosestPlayer()
     return closest
 end
 
--- Xoay camera về hướng đầu mục tiêu (CỰC CỨNG)
 local function aimAt(target)
     if not target or not target.Character then
         currentTarget = nil
@@ -299,32 +291,20 @@ local function aimAt(target)
         return
     end
     
-    -- Lấy vị trí đầu mục tiêu và vị trí mắt camera
     local headPos = head.Position
     local cameraPos = myCamera.CFrame.Position
-    
-    -- Tính hướng từ camera đến đầu
-    local direction = (headPos - cameraPos).Unit
-    
-    -- Tạo CFrame mới nhìn thẳng vào đầu (CỰC CỨNG, KHÔNG RUNG)
     local newCFrame = CFrame.new(cameraPos, headPos)
-    
-    -- Ép camera về hướng đó ngay lập tức (không có tween)
     myCamera.CFrame = newCFrame
 end
 
--- Nút bấm để bật/tắt
 aimBtn.MouseButton1Click:Connect(function()
     aimbotEnabled = not aimbotEnabled
     updateAimButton()
 end)
 
--- Luồng chính: tự động aim mỗi frame khi bật
 RunService.RenderStepped:Connect(function()
     if aimbotEnabled then
-        -- Tìm mục tiêu gần nhất
         local target = getClosestPlayer()
-        
         if target then
             currentTarget = target
             aimAt(target)
