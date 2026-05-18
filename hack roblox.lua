@@ -590,6 +590,9 @@ end)
 -- FAST HIT
 --========================
 
+local VirtualUser =
+	game:GetService("VirtualUser")
+
 local fastAttack = false
 
 local fastButton =
@@ -629,6 +632,16 @@ task.spawn(function()
 		task.wait(0.03)
 
 		if fastAttack then
+
+			VirtualUser:Button1Down(
+				Vector2.new(0,0),
+				workspace.CurrentCamera.CFrame
+			)
+
+			VirtualUser:Button1Up(
+				Vector2.new(0,0),
+				workspace.CurrentCamera.CFrame
+			)
 
 			local char =
 				player.Character
