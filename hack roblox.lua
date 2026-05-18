@@ -581,7 +581,7 @@ RunService.RenderStepped:Connect(function()
 			*
 			CFrame.Angles(
 				0,
-				math.rad(25),
+				math.rad(130),
 				0
 			)
 	end
