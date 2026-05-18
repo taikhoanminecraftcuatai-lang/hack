@@ -230,3 +230,106 @@ local function makeButton(text, row, col, color)
     click(b)
     return b
 end
+--========================
+-- AIM LOCK (LOOK ĐẦU)
+--========================
+
+local aimbotEnabled = false
+local currentTarget = nil
+
+-- Tạo nút bật/tắt AIM LOCK
+local aimBtn = makeButton("AIM LOCK", 1, 1, Color3.fromRGB(80, 50, 120))
+
+-- Cập nhật trạng thái nút
+local function updateAimButton()
+    if aimbotEnabled then
+        aimBtn.Text = "AIM LOCK [ON]"
+        aimBtn.BackgroundColor3 = Color3.fromRGB(100, 70, 150)
+        status.Text = "STATUS : AIM LOCK ON"
+    else
+        aimBtn.Text = "AIM LOCK"
+        aimBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+        status.Text = "STATUS : READY"
+        currentTarget = nil
+    end
+end
+
+-- Tìm người chơi gần nhất (theo khoảng cách thực tế)
+local function getClosestPlayer()
+    local character = player.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then
+        return nil
+    end
+    
+    local myPos = character.HumanoidRootPart.Position
+    local closest = nil
+    local closestDist = math.huge
+    
+    for _, other in pairs(Players:GetPlayers()) do
+        if other ~= player then
+            local otherChar = other.Character
+            if otherChar and otherChar:FindFirstChild("HumanoidRootPart") and otherChar:FindFirstChild("Head") then
+                local otherPos = otherChar.HumanoidRootPart.Position
+                local dist = (myPos - otherPos).Magnitude
+                
+                -- Chỉ aim trong khoảng cách nhất định (có thể tăng giảm)
+                if dist < closestDist and dist < 150 then
+                    closestDist = dist
+                    closest = other
+                end
+            end
+        end
+    end
+    
+    return closest
+end
+
+-- Xoay camera về hướng đầu mục tiêu (CỰC CỨNG)
+local function aimAt(target)
+    if not target or not target.Character then
+        currentTarget = nil
+        return
+    end
+    
+    local head = target.Character:FindFirstChild("Head")
+    local myCamera = workspace.CurrentCamera
+    local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    
+    if not head or not myCamera or not myRoot then
+        return
+    end
+    
+    -- Lấy vị trí đầu mục tiêu và vị trí mắt camera
+    local headPos = head.Position
+    local cameraPos = myCamera.CFrame.Position
+    
+    -- Tính hướng từ camera đến đầu
+    local direction = (headPos - cameraPos).Unit
+    
+    -- Tạo CFrame mới nhìn thẳng vào đầu (CỰC CỨNG, KHÔNG RUNG)
+    local newCFrame = CFrame.new(cameraPos, headPos)
+    
+    -- Ép camera về hướng đó ngay lập tức (không có tween)
+    myCamera.CFrame = newCFrame
+end
+
+-- Nút bấm để bật/tắt
+aimBtn.MouseButton1Click:Connect(function()
+    aimbotEnabled = not aimbotEnabled
+    updateAimButton()
+end)
+
+-- Luồng chính: tự động aim mỗi frame khi bật
+RunService.RenderStepped:Connect(function()
+    if aimbotEnabled then
+        -- Tìm mục tiêu gần nhất
+        local target = getClosestPlayer()
+        
+        if target then
+            currentTarget = target
+            aimAt(target)
+        else
+            currentTarget = nil
+        end
+    end
+end)
