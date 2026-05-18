@@ -314,202 +314,113 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 --========================
--- KILL AURA (NÂNG CẤP)
+-- ĐÁNH CỰC NHANH (AUTO SWING)
 --========================
 
-local killAuraEnabled = false
-local killRange = 60
+local fastAttackEnabled = false
+local attackDelay = 0.05  -- Đánh mỗi 0.05 giây (cực nhanh)
 
-local killBtn = makeButton(" KILL AURA", 1, 2, Color3.fromRGB(120, 30, 40))
+local attackBtn = makeButton("fast atta, 1, 2, Color3.fromRGB(200, 100, 0))
 
-local function updateKillButton()
-    if killAuraEnabled then
-        killBtn.Text = " KILL AURA [ON]"
-        killBtn.BackgroundColor3 = Color3.fromRGB(160, 40, 50)
-        status.Text = "STATUS : KILL AURA ON"
+local function updateAttackButton()
+    if fastAttackEnabled then
+        attackBtn.Text = "fast attack[ON]"
+        attackBtn.BackgroundColor3 = Color3.fromRGB(220, 120, 0)
+        status.Text = "STATUS : FAST ATTACK ON"
     else
-        killBtn.Text = " KILL AURA"
-        killBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+        attackBtn.Text = "fast attack"
+        attackBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
         status.Text = "STATUS : READY"
     end
 end
 
--- Tìm người gần nhất
-local function getClosestEnemy()
+-- Tìm tool đang cầm trên tay
+local function getCurrentTool()
     local char = player.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then
-        return nil, math.huge
-    end
+    if not char then return nil end
     
-    local myPos = char.HumanoidRootPart.Position
-    local closest = nil
-    local closestDist = killRange + 1
-    
-    for _, other in pairs(Players:GetPlayers()) do
-        if other ~= player then
-            local otherChar = other.Character
-            if otherChar and otherChar:FindFirstChild("HumanoidRootPart") then
-                local otherPos = otherChar.HumanoidRootPart.Position
-                local dist = (myPos - otherPos).Magnitude
-                if dist < closestDist then
-                    closestDist = dist
-                    closest = other
-                end
-            end
-        end
-    end
-    
-    return closest, closestDist
-end
-
--- Các cách tấn công khác nhau
-local function attackMethod1(targetChar)
-    -- Cách 1: Hạ trực tiếp Humanoid
-    local hum = targetChar:FindFirstChild("Humanoid")
-    if hum and hum.Health then
-        hum.Health = 0
-        return true
-    end
-    return false
-end
-
-local function attackMethod2(targetChar)
-    -- Cách 2: Dùng BodyVelocity hất văng
-    local root = targetChar:FindFirstChild("HumanoidRootPart")
-    if root then
-        local bv = Instance.new("BodyVelocity")
-        bv.MaxForce = Vector3.new(1,1,1) * math.huge
-        bv.Velocity = Vector3.new(0, 50, 0)
-        bv.Parent = root
-        task.wait(0.1)
-        bv:Destroy()
-        return true
-    end
-    return false
-end
-
-local function attackMethod3(targetChar)
-    -- Cách 3: Dùng Fire/Explosion (tạo sát thương từ môi trường)
-    local root = targetChar:FindFirstChild("HumanoidRootPart")
-    if root then
-        local explosion = Instance.new("Explosion")
-        explosion.Position = root.Position
-        explosion.BlastRadius = 5
-        explosion.BlastPressure = 100000
-        explosion.Parent = workspace
-        return true
-    end
-    return false
-end
-
-local function attackMethod4(targetChar)
-    -- Cách 4: Dùng Raycast bắn xuyên
-    local myChar = player.Character
-    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-    local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
-    
-    if myRoot and targetRoot then
-        local direction = (targetRoot.Position - myRoot.Position).Unit
-        local ray = Ray.new(myRoot.Position, direction * killRange)
-        local hit, pos = workspace:FindPartOnRay(ray, myChar)
-        
-        if hit and hit:IsDescendantOf(targetChar) then
-            local hum = targetChar:FindFirstChild("Humanoid")
-            if hum then
-                hum.Health = 0
-                return true
-            end
-        end
-    end
-    return false
-end
-
--- Hàm tấn công tổng hợp
-local function attackEnemy(target)
-    if not target or not target.Character then
-        return
-    end
-    
-    local targetChar = target.Character
-    local success = false
-    
-    -- Thử từng cách
-    success = attackMethod1(targetChar)
-    if success then return end
-    
-    success = attackMethod4(targetChar)
-    if success then return end
-    
-    success = attackMethod3(targetChar)
-    if success then return end
-    
-    attackMethod2(targetChar)
-end
-
--- Auto swing khi có tool trong tay
-local function autoSwing()
-    local char = player.Character
-    if not char then return end
-    
+    -- Tool đang cầm trên tay
     for _, tool in pairs(char:GetChildren()) do
         if tool:IsA("Tool") then
-            -- Kích hoạt tool
-            local remote = tool:FindFirstChild("RemoteEvent") or tool:FindFirstChild("Activate")
-            if remote and remote:IsA("RemoteEvent") then
-                remote:FireServer()
-            end
-            
-            -- Bắt chước click chuột
-            local clickEvent = tool:FindFirstChild("ClickEvent")
-            if clickEvent and clickEvent:IsA("RemoteEvent") then
-                clickEvent:FireServer()
-            end
-            
-            -- Tự động swing
-            local handle = tool:FindFirstChild("Handle")
-            if handle then
-                local humanoid = char:FindFirstChild("Humanoid")
-                if humanoid and humanoid:FindFirstChild("Animator") then
-                    -- Kích hoạt animation
-                    local animTrack = humanoid.Animator:LoadAnimation(tool:FindFirstChildWhichIsA("Animation"))
-                    if animTrack then
-                        animTrack:Play()
-                    end
-                end
-            end
+            return tool
         end
+    end
+    return nil
+end
+
+-- Kích hoạt đánh (gửi yêu cầu đánh lên server)
+local function swing()
+    local tool = getCurrentTool()
+    if not tool then return end
+    
+    -- Cách 1: Click vào tool (mô phỏng chuột)
+    local clickEvent = tool:FindFirstChild("ClickEvent")
+    if clickEvent and clickEvent:IsA("RemoteEvent") then
+        clickEvent:FireServer()
+    end
+    
+    -- Cách 2: Kích hoạt remote thường dùng trong game Vietnam
+    local remote = tool:FindFirstChild("RemoteEvent") or tool:FindFirstChild("Activate")
+    if remote and remote:IsA("RemoteEvent") then
+        remote:FireServer()
+    end
+    
+    -- Cách 3: Gọi hàm Tool được kích hoạt
+    local activate = tool:FindFirstChild("Activate")
+    if activate and activate:IsA("BindableEvent") then
+        activate:Fire()
+    end
+    
+    -- Cách 4: Mô phỏng nhấn chuột vào tool (dành cho tool có Handle)
+    local handle = tool:FindFirstChild("Handle")
+    if handle and handle:IsA("BasePart") then
+        -- Tạo sự kiện nhấp chuột giả
+        local clickDetector = handle:FindFirstChild("ClickDetector")
+        if clickDetector then
+            local mouse = player:GetMouse()
+            clickDetector.MouseClick:Fire(mouse)
+        end
+    end
+    
+    -- Cách 5: Gửi RemoteEvent toàn thân (dành cho game có Remotes dạng riêng)
+    local remoteEvent = game:GetService("ReplicatedStorage"):FindFirstChild("Attack") or 
+                         game:GetService("ReplicatedStorage"):FindFirstChild("Swing")
+    if remoteEvent and remoteEvent:IsA("RemoteEvent") then
+        remoteEvent:FireServer()
     end
 end
 
--- Luồng Kill Aura (chạy liên tục)
-coroutine.wrap(function()
-    while true do
-        if killAuraEnabled then
-            local target, dist = getClosestEnemy()
-            
-            if target and dist <= killRange then
-                -- Tấn công
-                attackEnemy(target)
-                
-                -- Tự động swing tool
-                autoSwing()
-                
-                -- Quay mặt về hướng mục tiêu
-                local myChar = player.Character
-                local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-                local targetChar = target.Character
-                local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
-                
-                if myRoot and targetRoot then
-                    myRoot.CFrame = CFrame.new(myRoot.Position, targetRoot.Position)
-                end
-            end
-        end
-        task.wait(0.05)  -- Tấn công mỗi 0.05 giây
-    end
-end)()
+-- Luồng đánh liên tục
+local attackLoop = nil
 
-killBtn.MouseButton1Click:Connect(function()
-    killAuraEnabled = not killAuraEnabled
-    updateKillButton()
+local function startFastAttack()
+    if attackLoop then 
+        task.cancel(attackLoop)
+        attackLoop = nil
+    end
+    
+    attackLoop = coroutine.wrap(function()
+        while fastAttackEnabled do
+            swing()
+            task.wait(attackDelay)
+        end
+    end)
+    attackLoop()
+end
+
+-- Bật/tắt khi nhấn nút
+attackBtn.MouseButton1Click:Connect(function()
+    fastAttackEnabled = not fastAttackEnabled
+    updateAttackButton()
+    
+    if fastAttackEnabled then
+        startFastAttack()
+    end
+end)
+
+-- Nếu đang bật mà mất tool thì vẫn tiếp tục chờ
+player.CharacterAdded:Connect(function()
+    if fastAttackEnabled then
+        startFastAttack()
+    end
 end)
