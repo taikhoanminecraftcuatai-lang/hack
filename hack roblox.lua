@@ -587,11 +587,8 @@ RunService.RenderStepped:Connect(function()
 	end
 end)
 --========================
--- FAST HIT OP
+-- FAST HIT
 --========================
-
-local VirtualUser =
-	game:GetService("VirtualUser")
 
 local fastAttack = false
 
@@ -629,7 +626,7 @@ end)
 task.spawn(function()
 
 	while true do
-		task.wait()
+		task.wait(0.12)
 
 		if fastAttack then
 
@@ -638,33 +635,11 @@ task.spawn(function()
 
 			if char then
 
-				local humanoid =
-					char:FindFirstChildOfClass("Humanoid")
-
 				local tool =
 					char:FindFirstChildOfClass("Tool")
 
-				if humanoid and tool then
-
-					for _,track in pairs(
-						humanoid:GetPlayingAnimationTracks()
-					) do
-						track:Stop(0)
-					end
-
-					humanoid:EquipTool(tool)
-
-					VirtualUser:Button1Down(
-						Vector2.new(0,0),
-						workspace.CurrentCamera.CFrame
-					)
-
+				if tool then
 					tool:Activate()
-
-					VirtualUser:Button1Up(
-						Vector2.new(0,0),
-						workspace.CurrentCamera.CFrame
-					)
 				end
 			end
 		end
