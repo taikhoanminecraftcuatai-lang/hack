@@ -422,7 +422,7 @@ local camera = workspace.CurrentCamera
 local lookButton =
 	makeButton(
 		"LOOK LOCK",
-		UDim2.new(0.05,0,0.25,0),
+		UDim2.new(0.05,0,0.55,0),
 		Color3.fromRGB(0,170,255)
 	)
 
