@@ -533,7 +533,7 @@ local spinEnabled = false
 local spinButton =
 	makeButton(
 		"SPIN BOT",
-		UDim2.new(0.35,0,0.45,0),
+		UDim2.new(0.35,0,0.55,0),
 		Color3.fromRGB(170,0,255)
 	)
 
