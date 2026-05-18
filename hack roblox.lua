@@ -524,3 +524,52 @@ RunService.RenderStepped:Connect(function()
 			Enum.MouseBehavior.LockCenter
 	end
 end)
+--========================
+-- SERVER HOP
+--========================
+
+local TeleportService =
+	game:GetService("TeleportService")
+
+local HttpService =
+	game:GetService("HttpService")
+
+local serverButton =
+	makeButton(
+		"SERVER HOP",
+		UDim2.new(0.35,0,0.25,0),
+		Color3.fromRGB(0,200,120)
+	)
+
+click(serverButton)
+
+serverButton.MouseButton1Click:Connect(function()
+
+	local PlaceID =
+		game.PlaceId
+
+	local servers =
+		game:HttpGet(
+			"https://games.roblox.com/v1/games/"
+			..PlaceID..
+			"/servers/Public?sortOrder=Asc&limit=100"
+		)
+
+	local data =
+		HttpService:JSONDecode(servers)
+
+	for _,v in pairs(data.data) do
+
+		if v.playing < v.maxPlayers
+		and v.id ~= game.JobId then
+
+			TeleportService:TeleportToPlaceInstance(
+				PlaceID,
+				v.id,
+				player
+			)
+
+			break
+		end
+	end
+end)
