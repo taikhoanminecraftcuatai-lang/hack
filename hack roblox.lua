@@ -313,3 +313,115 @@ RunService.RenderStepped:Connect(function()
         end
     end
 end)
+--========================
+-- KILL AURA
+--========================
+
+local killAuraEnabled = false
+local killRange = 80  -- Khoảng cách đánh (studs)
+local damageValue = 100  -- Sát thương (nếu game có hệ thống HP)
+
+-- Nút bật/tắt KILL AURA
+local killBtn = makeButton(" KILL AURA", 1, 2, Color3.fromRGB(120, 30, 40))
+
+-- Hàm cập nhật nút
+local function updateKillButton()
+    if killAuraEnabled then
+        killBtn.Text = " KILL AURA [ON]"
+        killBtn.BackgroundColor3 = Color3.fromRGB(160, 40, 50)
+    else
+        killBtn.Text = " KILL AURA"
+        killBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+    end
+end
+
+-- Tìm người chơi gần nhất
+local function getClosestPlayerForKill()
+    local character = player.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then
+        return nil
+    end
+    
+    local myPos = character.HumanoidRootPart.Position
+    local closest = nil
+    local closestDist = killRange + 1
+    
+    for _, other in pairs(Players:GetPlayers()) do
+        if other ~= player then
+            local otherChar = other.Character
+            if otherChar and otherChar:FindFirstChild("HumanoidRootPart") then
+                local otherPos = otherChar.HumanoidRootPart.Position
+                local dist = (myPos - otherPos).Magnitude
+                
+                if dist < closestDist then
+                    closestDist = dist
+                    closest = other
+                end
+            end
+        end
+    end
+    
+    return closest, closestDist
+end
+
+-- Tấn công mục tiêu
+local function attackTarget(target)
+    if not target or not target.Character then
+        return
+    end
+    
+    local targetChar = target.Character
+    local targetHum = targetChar:FindFirstChild("Humanoid")
+    local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+    local myChar = player.Character
+    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    
+    if not targetHum or not targetRoot or not myRoot then
+        return
+    end
+    
+    -- Cách 1: Gây sát thương trực tiếp vào Humanoid (hiệu quả với hầu hết game)
+    targetHum.Health = targetHum.Health - damageValue
+    
+    -- Cách 2: Quay mặt về hướng mục tiêu (tuỳ chọn)
+    local lookDir = CFrame.new(myRoot.Position, targetRoot.Position)
+    myRoot.CFrame = lookDir
+    
+    -- Cách 3: Tạo hiệu ứng đánh (nếu có tool/vũ khí trong tay)
+    local char = myChar
+    for _, tool in pairs(char:GetChildren()) do
+        if tool:IsA("Tool") then
+            -- Kích hoạt tool nếu có
+            local activate = tool:FindFirstChild("Activate")
+            if activate and activate:IsA("BindableEvent") then
+                activate:Fire()
+            end
+        end
+    end
+    
+    -- Cách 4: Gửi yêu cầu tấn công qua remote (nếu game có)
+    -- (dành cho game phức tạp hơn)
+end
+
+-- Luồng chính của Kill Aura
+RunService.RenderStepped:Connect(function()
+    if killAuraEnabled then
+        local target, dist = getClosestPlayerForKill()
+        
+        if target and dist <= killRange then
+            attackTarget(target)
+        end
+    end
+end)
+
+-- Nút bấm bật/tắt
+killBtn.MouseButton1Click:Connect(function()
+    killAuraEnabled = not killAuraEnabled
+    updateKillButton()
+    
+    if killAuraEnabled then
+        status.Text = "STATUS : KILL AURA ON"
+    else
+        status.Text = "STATUS : READY"
+    end
+end)
