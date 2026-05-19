@@ -407,7 +407,7 @@ player.CharacterAdded:Connect(function()
         createAllESP()
     end
 end)
-local swapMenuBtn = makeButton("", 2, 1, Color3.fromRGB(150, 80, 100))
+local swapMenuBtn = makeButton("teleport", 2, 1, Color3.fromRGB(150, 80, 100))
 
 local swapFrame = Instance.new("Frame")
 swapFrame.Parent = frame
