@@ -515,3 +515,206 @@ Players.PlayerRemoving:Connect(function()
         updatePlayerListUI()
     end
 end)
+--========================
+-- ESP DO VAT (CHI HIEN TEN + KHOANG CACH)
+--========================
+
+local itemEspEnabled = false
+local itemEspRadius = 150
+local itemEspList = {}
+
+local itemEspBtn = makeButton(" ESP ITEM", 2, 2, Color3.fromRGB(80, 150, 80))
+
+-- Tao billboard cho 1 vat pham
+local function createItemESP(itemPart, itemName)
+    local bill = Instance.new("BillboardGui")
+    bill.Name = "ItemESP"
+    bill.Size = UDim2.new(0, 150, 0, 35)
+    bill.StudsOffset = Vector3.new(0, 1.5, 0)
+    bill.AlwaysOnTop = true
+    bill.Parent = itemPart
+    
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Size = UDim2.new(1, 0, 0.6, 0)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text = itemName
+    nameLabel.TextSize = 12
+    nameLabel.Font = Enum.Font.GothamBold
+    nameLabel.TextXAlignment = Enum.TextXAlignment.Center
+    nameLabel.TextStrokeTransparency = 0.3
+    nameLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+    nameLabel.TextColor3 = Color3.fromRGB(255, 255, 100)
+    nameLabel.Parent = bill
+    
+    local distLabel = Instance.new("TextLabel")
+    distLabel.Size = UDim2.new(1, 0, 0.4, 0)
+    distLabel.Position = UDim2.new(0, 0, 0.6, 0)
+    distLabel.BackgroundTransparency = 1
+    distLabel.Text = ""
+    distLabel.TextSize = 10
+    distLabel.Font = Enum.Font.Gotham
+    distLabel.TextXAlignment = Enum.TextXAlignment.Center
+    distLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    distLabel.Parent = bill
+    
+    return {
+        bill = bill,
+        nameLabel = nameLabel,
+        distLabel = distLabel,
+        part = itemPart
+    }
+end
+
+-- Tim tat ca vat pham trong game (bo qua nguoi choi va nhan vat cua minh)
+local function getAllItems()
+    local items = {}
+    local myChar = player.Character
+    if not myChar then return items end
+    
+    local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return items end
+    local myPos = myRoot.Position
+    
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") then
+            if obj.Name == "Terrain" then
+                goto skip
+            end
+            
+            local isPlayer = false
+            for _, p in pairs(Players:GetPlayers()) do
+                if obj:IsDescendantOf(p.Character) then
+                    isPlayer = true
+                    break
+                end
+            end
+            if isPlayer then
+                goto skip
+            end
+            
+            if obj:IsDescendantOf(myChar) then
+                goto skip
+            end
+            
+            local genericNames = {"Part", "CylinderPart", "WedgePart", "CornerWedgePart", "TrussPart", "MeshPart", "Union", "Model"}
+            local isGeneric = false
+            for _, name in pairs(genericNames) do
+                if obj.Name == name then
+                    isGeneric = true
+                    break
+                end
+            end
+            if isGeneric then
+                goto skip
+            end
+            
+            local dist = (myPos - obj.Position).Magnitude
+            if dist <= itemEspRadius then
+                table.insert(items, {
+                    part = obj,
+                    name = obj.Name,
+                    distance = dist
+                })
+            end
+        end
+        ::skip::
+    end
+    
+    return items
+end
+
+local function clearAllItemESP()
+    for _, esp in pairs(itemEspList) do
+        if esp and esp.bill then
+            esp.bill:Destroy()
+        end
+    end
+    itemEspList = {}
+end
+
+local function refreshItemESP()
+    clearAllItemESP()
+    local items = getAllItems()
+    for _, item in pairs(items) do
+        if item.part and item.part.Parent then
+            local esp = createItemESP(item.part, item.name)
+            table.insert(itemEspList, esp)
+        end
+    end
+end
+
+local function updateDistanceLabels()
+    local myChar = player.Character
+    if not myChar then return end
+    local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return end
+    local myPos = myRoot.Position
+    
+    for _, esp in pairs(itemEspList) do
+        if esp and esp.part and esp.part.Parent then
+            local dist = (myPos - esp.part.Position).Magnitude
+            esp.distLabel.Text = string.format("%.1f m", dist)
+            if dist > itemEspRadius then
+                esp.bill.Enabled = false
+            else
+                esp.bill.Enabled = true
+            end
+        end
+    end
+end
+
+local function scanNewItems()
+    local currentParts = {}
+    for _, esp in pairs(itemEspList) do
+        if esp and esp.part then
+            currentParts[esp.part] = true
+        end
+    end
+    
+    local items = getAllItems()
+    for _, item in pairs(items) do
+        if item.part and item.part.Parent and not currentParts[item.part] then
+            local esp = createItemESP(item.part, item.name)
+            table.insert(itemEspList, esp)
+        end
+    end
+end
+
+local function toggleItemESP()
+    itemEspEnabled = not itemEspEnabled
+    
+    if itemEspEnabled then
+        refreshItemESP()
+        itemEspBtn.Text = " ESP ITEM ON"
+        itemEspBtn.BackgroundColor3 = Color3.fromRGB(100, 180, 100)
+        status.Text = "STATUS :  ESP ITEM ON"
+        
+        if not scanLoop then
+            scanLoop = RunService.RenderStepped:Connect(function()
+                if itemEspEnabled then
+                    scanNewItems()
+                    updateDistanceLabels()
+                end
+            end)
+        end
+    else
+        clearAllItemESP()
+        itemEspBtn.Text = "ITEM ESP"
+        itemEspBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+        status.Text = "STATUS : READY"
+        
+        if scanLoop then
+            scanLoop:Disconnect()
+            scanLoop = nil
+        end
+    end
+end
+
+itemEspBtn.MouseButton1Click:Connect(toggleItemESP)
+
+player.CharacterAdded:Connect(function()
+    if itemEspEnabled then
+        task.wait(1)
+        refreshItemESP()
+    end
+end)
