@@ -407,7 +407,7 @@ player.CharacterAdded:Connect(function()
         createAllESP()
     end
 end)
-local swapMenuBtn = makeButton("SWAP", 2, 1, Color3.fromRGB(150, 80, 100))
+local swapMenuBtn = makeButton("", 2, 1, Color3.fromRGB(150, 80, 100))
 
 local swapFrame = Instance.new("Frame")
 swapFrame.Parent = frame
@@ -428,7 +428,7 @@ local swapTitle = Instance.new("TextLabel")
 swapTitle.Parent = swapFrame
 swapTitle.Size = UDim2.new(1, 0, 0, 30)
 swapTitle.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-swapTitle.Text = "CHON NGUOI DOI VI TRI"
+swapTitle.Text = "CHON NGUOI TELEPORT"
 swapTitle.TextColor3 = Color3.new(1, 1, 1)
 swapTitle.Font = Enum.Font.GothamBold
 swapTitle.TextSize = 12
@@ -484,10 +484,10 @@ local function updatePlayerListUI()
                     myRoot.CFrame = targetPos + Vector3.new(0, 3, 0)
                     targetRoot.CFrame = myPos + Vector3.new(0, 3, 0)
                     
-                    status.Text = "STATUS : DA DOI VI TRI VOI " .. other.Name
+                    status.Text = "STATUS : DA DOI TELEPORT DEN " .. other.Name
                     swapFrame.Visible = false
                 else
-                    status.Text = "STATUS : KHONG THE DOI VI TRI"
+                    status.Text = "STATUS : KHONG THE TELEPORT"
                 end
             end)
             
