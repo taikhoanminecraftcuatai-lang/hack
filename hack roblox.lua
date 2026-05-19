@@ -314,93 +314,231 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 --========================
--- ĐÁNH CỰC NHANH (AUTO SWING) - ĐÃ SỬA LỖI
+-- ESP CHUYÊN NGHIỆP (NHÌN XUYÊN TƯỜNG)
 --========================
 
-local fastAttackEnabled = false
-local attackDelay = 0.05
+local espEnabled = false
+local espObjects = {}  -- Lưu các object ESP để xóa sau
 
-local attackBtn = makeButton("⚡ ĐÁNH NHANH", 1, 2, Color3.fromRGB(200, 100, 0))
+-- Tạo nút ESP
+local espBtn = makeButton("️ ESP", 1, 2, Color3.fromRGB(50, 100, 150))
 
-local function updateAttackButton()
-    if fastAttackEnabled then
-        attackBtn.Text = "⚡ ĐÁNH NHANH [ON]"
-        attackBtn.BackgroundColor3 = Color3.fromRGB(220, 120, 0)
-        status.Text = "STATUS : FAST ATTACK ON"
+-- Màu sắc cho từng đội (nếu có)
+local teamColors = {
+    ["Enemy"] = Color3.fromRGB(255, 0, 0),     -- Đỏ: kẻ địch
+    ["Friend"] = Color3.fromRGB(0, 255, 0),   -- Xanh: đồng đội
+    ["Neutral"] = Color3.fromRGB(255, 255, 0) -- Vàng: trung lập
+}
+
+-- Hàm tạo Box ESP (khung quanh người)
+local function createBox(player)
+    if espObjects[player] then
+        destroyESP(player)
+    end
+    
+    local char = player.Character
+    if not char then return end
+    
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    
+    -- Tạo BillboardGui hiển thị tên + máu
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "ESP_Billboard"
+    billboard.Size = UDim2.new(0, 200, 0, 50)
+    billboard.StudsOffset = Vector3.new(0, 2.5, 0)
+    billboard.AlwaysOnTop = true
+    billboard.Parent = char:WaitForChild("Head", 0.5) or char
+    
+    -- Tên người chơi
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Size = UDim2.new(1, 0, 0.5, 0)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text = player.Name
+    nameLabel.TextColor3 = teamColors["Enemy"]
+    nameLabel.TextStrokeTransparency = 0.3
+    nameLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+    nameLabel.Font = Enum.Font.GothamBold
+    nameLabel.TextSize = 14
+    nameLabel.Parent = billboard
+    
+    -- Khoảng cách
+    local distLabel = Instance.new("TextLabel")
+    distLabel.Size = UDim2.new(1, 0, 0.5, 0)
+    distLabel.Position = UDim2.new(0, 0, 0.5, 0)
+    distLabel.BackgroundTransparency = 1
+    distLabel.Text = ""
+    distLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    distLabel.TextStrokeTransparency = 0.3
+    distLabel.Font = Enum.Font.Gotham
+    distLabel.TextSize = 11
+    distLabel.Parent = billboard
+    
+    -- Khung Box (2D) - dùng Drawing nếu hỗ trợ, không thì dùng khung 3D
+    local boxOutline = Instance.new("SelectionBox")
+    boxOutline.Name = "ESP_Box"
+    boxOutline.Adornee = root
+    boxOutline.Color3 = teamColors["Enemy"]
+    boxOutline.LineThickness = 0.05
+    boxOutline.Transparency = 0.5
+    boxOutline.Parent = char
+    
+    -- Đường Line từ camera đến mục tiêu
+    local line = Instance.new("SelectionPartLasso")
+    line.Name = "ESP_Line"
+    line.Humanoid = char:FindFirstChild("Humanoid")
+    line.Part = root
+    line.Color3 = teamColors["Enemy"]
+    line.Transparency = 0.3
+    line.Visible = true
+    line.Parent = char
+    
+    -- Lưu lại để xóa sau
+    espObjects[player] = {
+        billboard = billboard,
+        box = boxOutline,
+        line = line,
+        nameLabel = nameLabel,
+        distLabel = distLabel
+    }
+    
+    return true
+end
+
+-- Hàm cập nhật khoảng cách và màu sắc
+local function updateESP()
+    local myChar = player.Character
+    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    
+    for _, other in pairs(Players:GetPlayers()) do
+        if other ~= player and espObjects[other] then
+            local otherChar = other.Character
+            local dist = ""
+            local color = teamColors["Enemy"]
+            
+            if myRoot and otherChar and otherChar:FindFirstChild("HumanoidRootPart") then
+                local distance = (myRoot.Position - otherChar.HumanoidRootPart.Position).Magnitude
+                dist = string.format("%.1f m", distance)
+                
+                -- Đổi màu theo khoảng cách
+                if distance < 30 then
+                    color = Color3.fromRGB(255, 50, 50)  -- Đỏ đậm (gần)
+                elseif distance < 70 then
+                    color = Color3.fromRGB(255, 150, 50) -- Cam (trung bình)
+                else
+                    color = Color3.fromRGB(255, 255, 100) -- Vàng (xa)
+                end
+            end
+            
+            local data = espObjects[other]
+            if data then
+                if data.nameLabel then
+                    data.nameLabel.TextColor3 = color
+                end
+                if data.distLabel then
+                    data.distLabel.Text = dist
+                end
+                if data.box then
+                    data.box.Color3 = color
+                end
+                if data.line then
+                    data.line.Color3 = color
+                end
+            end
+        end
+    end
+end
+
+-- Hàm xóa ESP của 1 player
+local function destroyESP(target)
+    local data = espObjects[target]
+    if data then
+        if data.billboard then data.billboard:Destroy() end
+        if data.box then data.box:Destroy() end
+        if data.line then data.line:Destroy() end
+        espObjects[target] = nil
+    end
+end
+
+-- Hàm xóa toàn bộ ESP
+local function destroyAllESP()
+    for target, _ in pairs(espObjects) do
+        destroyESP(target)
+    end
+    espObjects = {}
+end
+
+-- Tạo ESP cho tất cả người chơi
+local function createAllESP()
+    destroyAllESP()
+    for _, other in pairs(Players:GetPlayers()) do
+        if other ~= player then
+            createBox(other)
+        end
+    end
+end
+
+-- Cập nhật khi người chơi mới vào
+Players.PlayerAdded:Connect(function(newPlayer)
+    if espEnabled then
+        task.wait(0.5)
+        createBox(newPlayer)
+    end
+end)
+
+-- Cập nhật khi người chơi rời
+Players.PlayerRemoving:Connect(function(leavingPlayer)
+    if espObjects[leavingPlayer] then
+        destroyESP(leavingPlayer)
+    end
+end)
+
+-- Cập nhật khi nhân vật xuất hiện
+local function onCharacterAdded(player, character)
+    if espEnabled and player ~= player then
+        task.wait(0.5)
+        createBox(player)
+    end
+end
+
+for _, other in pairs(Players:GetPlayers()) do
+    if other ~= player then
+        other.CharacterAdded:Connect(function()
+            onCharacterAdded(other)
+        end)
+    end
+end
+
+-- Cập nhật ESP mỗi frame
+RunService.RenderStepped:Connect(function()
+    if espEnabled then
+        updateESP()
+    end
+end)
+
+-- Bật/tắt ESP
+local function toggleESP()
+    espEnabled = not espEnabled
+    
+    if espEnabled then
+        createAllESP()
+        espBtn.Text = "️ ESP [ON]"
+        espBtn.BackgroundColor3 = Color3.fromRGB(80, 130, 180)
+        status.Text = "STATUS : ESP ON"
     else
-        attackBtn.Text = "⚡ ĐÁNH NHANH"
-        attackBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+        destroyAllESP()
+        espBtn.Text = "️ ESP"
+        espBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
         status.Text = "STATUS : READY"
     end
 end
 
-local function getCurrentTool()
-    local char = player.Character
-    if not char then return nil end
-    for _, tool in pairs(char:GetChildren()) do
-        if tool:IsA("Tool") then
-            return tool
-        end
-    end
-    return nil
-end
+espBtn.MouseButton1Click:Connect(toggleESP)
 
-local function swing()
-    local tool = getCurrentTool()
-    if not tool then return end
-    
-    local clickEvent = tool:FindFirstChild("ClickEvent")
-    if clickEvent and clickEvent:IsA("RemoteEvent") then
-        clickEvent:FireServer()
-    end
-    
-    local remote = tool:FindFirstChild("RemoteEvent") or tool:FindFirstChild("Activate")
-    if remote and remote:IsA("RemoteEvent") then
-        remote:FireServer()
-    end
-    
-    local activate = tool:FindFirstChild("Activate")
-    if activate and activate:IsA("BindableEvent") then
-        activate:Fire()
-    end
-    
-    local handle = tool:FindFirstChild("Handle")
-    if handle and handle:IsA("BasePart") then
-        local clickDetector = handle:FindFirstChild("ClickDetector")
-        if clickDetector then
-            clickDetector:Click()
-        end
-    end
-    
-    local remoteEvent = game:GetService("ReplicatedStorage"):FindFirstChild("Attack") or 
-                         game:GetService("ReplicatedStorage"):FindFirstChild("Swing")
-    if remoteEvent and remoteEvent:IsA("RemoteEvent") then
-        remoteEvent:FireServer()
-    end
-end
-
-local attackRunning = false
-
-attackBtn.MouseButton1Click:Connect(function()
-    fastAttackEnabled = not fastAttackEnabled
-    updateAttackButton()
-    
-    if fastAttackEnabled then
-        if attackRunning then return end
-        attackRunning = true
-        coroutine.wrap(function()
-            while fastAttackEnabled do
-                swing()
-                task.wait(attackDelay)
-            end
-            attackRunning = false
-        end)()
-    end
-end)
-
+-- Khi nhân vật chết thì xóa ESP cũ
 player.CharacterAdded:Connect(function()
-    if fastAttackEnabled then
-        fastAttackEnabled = false
-        updateAttackButton()
+    if espEnabled then
+        task.wait(1)
+        createAllESP()
     end
 end)
