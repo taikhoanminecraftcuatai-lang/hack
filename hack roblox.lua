@@ -516,14 +516,58 @@ Players.PlayerRemoving:Connect(function()
     end
 end)
 --========================
--- ESP DO VAT (CHI HIEN TEN + KHOANG CACH)
+-- ESP DO VAT (LOC DO QUAN TRONG)
 --========================
 
 local itemEspEnabled = false
-local itemEspRadius = 150
+local itemEspRadius = 100
 local itemEspList = {}
 
 local itemEspBtn = makeButton("ITEM ESP", 2, 2, Color3.fromRGB(80, 150, 80))
+
+-- Danh sach ten duoc phep hien ESP (BO QUA GRASS, TRUNK, TERRAIN...)
+local allowedNames = {
+    -- Vu khi
+    "gun", "sword", "knife", "axe", "hammer", "weapon", "bow", "arrow",
+    -- Tien va vat pham
+    "coin", "money", "gold", "gem", "diamond", "ruby", "crystal",
+    -- Hoi mau
+    "health", "med", "heal", "bandage", "potion", "food", "apple", "berry",
+    -- Dan va ammo
+    "ammo", "bullet", "magazine", "shell", "rocket",
+    -- Chiec khoa
+    "key", "card", "pass",
+    -- Hop, rương
+    "chest", "crate", "barrel", "box", "bag", "backpack",
+    -- Nguyen lieu (bo qua grass, trunk)
+    "ore", "stone", "wood", "iron", "goldore", "diamondore",
+}
+
+-- Danh sach ten bi CHAN (khong hien)
+local blockedNames = {
+    "grass", "trunk", "leaf", "bush", "flower", "rock", "stone",
+    "terrain", "ground", "dirt", "sand", "water", "lava",
+    "part", "basepart", "meshpart", "union", "model",
+    "main", "branch", "root", "log", "plank", "board",
+}
+
+local function isAllowedItem(itemName)
+    local lower = itemName:lower()
+    -- Kiem tra trong danh sach bi chan
+    for _, blocked in pairs(blockedNames) do
+        if lower:find(blocked) then
+            return false
+        end
+    end
+    -- Kiem tra trong danh sach duoc phep
+    for _, allowed in pairs(allowedNames) do
+        if lower:find(allowed) then
+            return true
+        end
+    end
+    -- Mac dinh: KHONG hien (de tranh spam grass, trunk)
+    return false
+end
 
 local function createItemESP(itemPart, itemName)
     local bill = Instance.new("BillboardGui")
@@ -565,10 +609,9 @@ local function getAllItems()
     if not myRoot then return items end
     local myPos = myRoot.Position
     
-    local genericNames = {Part=true, CylinderPart=true, WedgePart=true, CornerWedgePart=true, TrussPart=true, MeshPart=true, Union=true, Model=true}
-    
     for _, obj in pairs(workspace:GetDescendants()) do
         if obj:IsA("BasePart") and obj.Name ~= "Terrain" then
+            -- Bo qua nguoi choi
             local isPlayer = false
             for _, p in pairs(Players:GetPlayers()) do
                 if obj:IsDescendantOf(p.Character) then
@@ -576,7 +619,11 @@ local function getAllItems()
                     break
                 end
             end
-            if not isPlayer and not obj:IsDescendantOf(myChar) and not genericNames[obj.Name] then
+            if isPlayer then continue end
+            if obj:IsDescendantOf(myChar) then continue end
+            
+            -- Chi lay nhung vat pham duoc phep
+            if isAllowedItem(obj.Name) then
                 local dist = (myPos - obj.Position).Magnitude
                 if dist <= itemEspRadius then
                     table.insert(items, {part = obj, name = obj.Name, distance = dist})
@@ -604,7 +651,7 @@ local function refreshItemESP()
     end
 end
 
-local function updateDistanceLabels()
+local function updateLabels()
     local myChar = player.Character
     if not myChar then return end
     local myRoot = myChar:FindFirstChild("HumanoidRootPart")
@@ -647,7 +694,7 @@ local function toggleItemESP()
         scanLoop = RunService.RenderStepped:Connect(function()
             if itemEspEnabled then
                 scanNewItems()
-                updateDistanceLabels()
+                updateLabels()
             end
         end)
     else
