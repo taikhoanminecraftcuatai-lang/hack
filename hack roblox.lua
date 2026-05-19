@@ -516,7 +516,7 @@ Players.PlayerRemoving:Connect(function()
     end
 end)
 --========================
--- ESP DO VAT (LOC DO QUAN TRONG)
+-- ESP DO NHAT DUOC (CO THE NHAT)
 --========================
 
 local itemEspEnabled = false
@@ -525,53 +525,56 @@ local itemEspList = {}
 
 local itemEspBtn = makeButton("ITEM ESP", 2, 2, Color3.fromRGB(80, 150, 80))
 
--- Danh sach ten duoc phep hien ESP (BO QUA GRASS, TRUNK, TERRAIN...)
-local allowedNames = {
-    -- Vu khi
-    "gun", "sword", "knife", "axe", "hammer", "weapon", "bow", "arrow",
-    -- Tien va vat pham
-    "coin", "money", "gold", "gem", "diamond", "ruby", "crystal",
-    -- Hoi mau
-    "health", "med", "heal", "bandage", "potion", "food", "apple", "berry",
-    -- Dan va ammo
-    "ammo", "bullet", "magazine", "shell", "rocket",
-    -- Chiec khoa
-    "key", "card", "pass",
-    -- Hop, rương
-    "chest", "crate", "barrel", "box", "bag", "backpack",
-    -- Nguyen lieu (bo qua grass, trunk)
-    "ore", "stone", "wood", "iron", "goldore", "diamondore",
+-- Danh sach ten do co the nhat (them tuy y)
+local pickupItems = {
+    "coin", "money", "gold", "gem", "diamond", "ruby", "crystal", "emerald",
+    "health", "med", "heal", "bandage", "potion", "food", "apple", "berry", "meat",
+    "ammo", "bullet", "magazine", "shell", "rocket", "arrow",
+    "key", "card", "pass", "token",
+    "chest", "crate", "bag", "backpack", "loot",
+    "weapon", "gun", "sword", "knife", "axe", "hammer", "bow",
+    "wood", "stone", "ore", "ingot", "leather", "cloth", "herb",
+    "scroll", "book", "potion", "elixir", "vial",
 }
 
--- Danh sach ten bi CHAN (khong hien)
-local blockedNames = {
-    "grass", "trunk", "leaf", "bush", "flower", "rock", "stone",
-    "terrain", "ground", "dirt", "sand", "water", "lava",
-    "part", "basepart", "meshpart", "union", "model",
-    "main", "branch", "root", "log", "plank", "board",
-}
-
-local function isAllowedItem(itemName)
+local function isPickupItem(itemName)
     local lower = itemName:lower()
-    -- Kiem tra trong danh sach bi chan
-    for _, blocked in pairs(blockedNames) do
-        if lower:find(blocked) then
-            return false
-        end
-    end
-    -- Kiem tra trong danh sach duoc phep
-    for _, allowed in pairs(allowedNames) do
-        if lower:find(allowed) then
+    for _, name in pairs(pickupItems) do
+        if lower:find(name) then
             return true
         end
     end
-    -- Mac dinh: KHONG hien (de tranh spam grass, trunk)
+    return false
+end
+
+-- Kiem tra xem vat pham co the nhat duoc khong
+local function canPickup(obj)
+    -- Co ClickDetector?
+    if obj:FindFirstChild("ClickDetector") then
+        return true
+    end
+    
+    -- Hoac tool (vu khi, do dung)
+    if obj:IsA("Tool") then
+        return true
+    end
+    
+    -- Hoac co ten trong danh sach do nhap
+    if isPickupItem(obj.Name) then
+        return true
+    end
+    
+    -- Hoac co trong model co chua child la tool
+    if obj:IsA("Model") and obj:FindFirstChildWhichIsA("Tool") then
+        return true
+    end
+    
     return false
 end
 
 local function createItemESP(itemPart, itemName)
     local bill = Instance.new("BillboardGui")
-    bill.Size = UDim2.new(0, 150, 0, 35)
+    bill.Size = UDim2.new(0, 140, 0, 35)
     bill.StudsOffset = Vector3.new(0, 1.5, 0)
     bill.AlwaysOnTop = true
     bill.Parent = itemPart
@@ -584,7 +587,7 @@ local function createItemESP(itemPart, itemName)
     nameLabel.Font = Enum.Font.GothamBold
     nameLabel.TextXAlignment = Enum.TextXAlignment.Center
     nameLabel.TextStrokeTransparency = 0.3
-    nameLabel.TextColor3 = Color3.fromRGB(255, 255, 100)
+    nameLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
     nameLabel.Parent = bill
     
     local distLabel = Instance.new("TextLabel")
@@ -601,7 +604,7 @@ local function createItemESP(itemPart, itemName)
     return {bill = bill, nameLabel = nameLabel, distLabel = distLabel, part = itemPart}
 end
 
-local function getAllItems()
+local function getPickupItems()
     local items = {}
     local myChar = player.Character
     if not myChar then return items end
@@ -610,48 +613,58 @@ local function getAllItems()
     local myPos = myRoot.Position
     
     for _, obj in pairs(workspace:GetDescendants()) do
-        if obj:IsA("BasePart") and obj.Name ~= "Terrain" then
-            -- Bo qua nguoi choi
-            local isPlayer = false
-            for _, p in pairs(Players:GetPlayers()) do
-                if obj:IsDescendantOf(p.Character) then
-                    isPlayer = true
-                    break
-                end
+        -- Bo qua nguoi choi
+        local isPlayer = false
+        for _, p in pairs(Players:GetPlayers()) do
+            if obj:IsDescendantOf(p.Character) then
+                isPlayer = true
+                break
             end
-            if isPlayer then continue end
-            if obj:IsDescendantOf(myChar) then continue end
+        end
+        if isPlayer then continue end
+        
+        -- Bo qua ban than minh
+        if obj:IsDescendantOf(myChar) then continue end
+        
+        -- Bo qua terrain
+        if obj.Name == "Terrain" then continue end
+        
+        -- Kiem tra co the nhat khong
+        if canPickup(obj) then
+            local part = obj
+            if obj:IsA("Model") then
+                part = obj:FindFirstChild("Head") or obj:FindFirstChild("Handle") or obj:FindFirstChildWhichIsA("BasePart")
+                if not part then part = obj end
+            end
             
-            -- Chi lay nhung vat pham duoc phep
-            if isAllowedItem(obj.Name) then
-                local dist = (myPos - obj.Position).Magnitude
-                if dist <= itemEspRadius then
-                    table.insert(items, {part = obj, name = obj.Name, distance = dist})
-                end
+            local dist = (myPos - (part.Position or obj.Position)).Magnitude
+            if dist <= itemEspRadius then
+                table.insert(items, {part = part, name = obj.Name})
             end
         end
     end
     return items
 end
 
-local function clearAllItemESP()
+local function clearESP()
     for _, esp in pairs(itemEspList) do
         if esp and esp.bill then esp.bill:Destroy() end
     end
     itemEspList = {}
 end
 
-local function refreshItemESP()
-    clearAllItemESP()
-    local items = getAllItems()
+local function refreshESP()
+    clearESP()
+    local items = getPickupItems()
     for _, item in pairs(items) do
         if item.part and item.part.Parent then
-            table.insert(itemEspList, createItemESP(item.part, item.name))
+            local esp = createItemESP(item.part, item.name)
+            table.insert(itemEspList, esp)
         end
     end
 end
 
-local function updateLabels()
+local function updateDistances()
     local myChar = player.Character
     if not myChar then return end
     local myRoot = myChar:FindFirstChild("HumanoidRootPart")
@@ -661,7 +674,7 @@ local function updateLabels()
     for _, esp in pairs(itemEspList) do
         if esp and esp.part and esp.part.Parent then
             local dist = (myPos - esp.part.Position).Magnitude
-            esp.distLabel.Text = string.format("%.1f m", dist)
+            esp.distLabel.Text = string.format("%.1fm", dist)
             esp.bill.Enabled = (dist <= itemEspRadius)
         end
     end
@@ -672,7 +685,7 @@ local function scanNewItems()
     for _, esp in pairs(itemEspList) do
         if esp and esp.part then currentParts[esp.part] = true end
     end
-    local items = getAllItems()
+    local items = getPickupItems()
     for _, item in pairs(items) do
         if item.part and item.part.Parent and not currentParts[item.part] then
             table.insert(itemEspList, createItemESP(item.part, item.name))
@@ -682,11 +695,11 @@ end
 
 local scanLoop = nil
 
-local function toggleItemESP()
+local function toggleESP()
     itemEspEnabled = not itemEspEnabled
     
     if itemEspEnabled then
-        refreshItemESP()
+        refreshESP()
         itemEspBtn.Text = "ITEM ESP ON"
         itemEspBtn.BackgroundColor3 = Color3.fromRGB(100, 180, 100)
         status.Text = "STATUS : ITEM ESP ON"
@@ -694,11 +707,11 @@ local function toggleItemESP()
         scanLoop = RunService.RenderStepped:Connect(function()
             if itemEspEnabled then
                 scanNewItems()
-                updateLabels()
+                updateDistances()
             end
         end)
     else
-        clearAllItemESP()
+        clearESP()
         itemEspBtn.Text = "ITEM ESP"
         itemEspBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
         status.Text = "STATUS : READY"
@@ -706,8 +719,8 @@ local function toggleItemESP()
     end
 end
 
-itemEspBtn.MouseButton1Click:Connect(toggleItemESP)
+itemEspBtn.MouseButton1Click:Connect(toggleESP)
 
 player.CharacterAdded:Connect(function()
-    if itemEspEnabled then task.wait(1) refreshItemESP() end
+    if itemEspEnabled then task.wait(1) refreshESP() end
 end)
