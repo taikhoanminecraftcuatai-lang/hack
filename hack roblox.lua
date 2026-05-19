@@ -1,31 +1,19 @@
---// SIMPLE GUI + KEY SYSTEM + AIM LOCK
---// LocalScript
 local RunService = game:GetService("RunService")
-local UIS = game:GetService("UserInputService")
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
-
---========================
--- MAIN GUI
---========================
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "MAIN_GUI"
 gui.Parent = game.CoreGui
 gui.Enabled = false
 
---========================
--- OPEN BUTTON
---========================
-
 local open = Instance.new("TextButton")
 open.Parent = gui
 open.Size = UDim2.new(0, 70, 0, 35)
 open.Position = UDim2.new(0, 20, 0.5, -35)
 open.Text = "MENU"
-open.TextScaled = false
 open.TextSize = 12
 open.Font = Enum.Font.GothamBlack
 open.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
@@ -36,14 +24,10 @@ open.Draggable = true
 
 Instance.new("UICorner", open).CornerRadius = UDim.new(1, 0)
 
---========================
--- MAIN FRAME
---========================
-
 local frame = Instance.new("Frame")
 frame.Parent = gui
-frame.Size = UDim2.new(0, 450, 0, 400)
-frame.Position = UDim2.new(0.5, -225, 0.5, -200)
+frame.Size = UDim2.new(0, 450, 0, 450)
+frame.Position = UDim2.new(0.5, -225, 0.5, -225)
 frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 frame.Visible = false
 frame.Active = true
@@ -52,17 +36,15 @@ frame.BorderSizePixel = 0
 
 Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 20)
 
--- TITLE
 local title = Instance.new("TextLabel")
 title.Parent = frame
 title.Size = UDim2.new(1, 0, 0, 60)
 title.BackgroundTransparency = 1
-title.Text = "⚡ TOOL HUB"
+title.Text = "TOOL HUB"
 title.TextScaled = true
 title.Font = Enum.Font.GothamBlack
 title.TextColor3 = Color3.new(1, 1, 1)
 
--- STATUS
 local status = Instance.new("TextLabel")
 status.Parent = frame
 status.Size = UDim2.new(1, 0, 0, 40)
@@ -73,23 +55,14 @@ status.TextScaled = true
 status.Font = Enum.Font.GothamBold
 status.TextColor3 = Color3.new(1, 1, 1)
 
--- KHU VỰC ĐỂ NÚT
 local buttonContainer = Instance.new("Frame")
 buttonContainer.Parent = frame
-buttonContainer.Size = UDim2.new(1, -40, 0, 250)
+buttonContainer.Size = UDim2.new(1, -40, 0, 300)
 buttonContainer.Position = UDim2.new(0, 20, 0.42, 0)
 buttonContainer.BackgroundTransparency = 1
-buttonContainer.Name = "ButtonContainer"
-
---========================
--- KEY SYSTEM
---========================
 
 local correctKey = "tailovuong"
-
-local whitelist = {
-    ["sidbuddb"] = true
-}
+local whitelist = { ["sidbuddb"] = true }
 
 local keyGui = Instance.new("ScreenGui")
 keyGui.Parent = game.CoreGui
@@ -107,7 +80,7 @@ local keyTitle = Instance.new("TextLabel")
 keyTitle.Parent = keyFrame
 keyTitle.Size = UDim2.new(1, 0, 0, 60)
 keyTitle.BackgroundTransparency = 1
-keyTitle.Text = "🔐 ENTER KEY"
+keyTitle.Text = "ENTER KEY"
 keyTitle.TextScaled = true
 keyTitle.Font = Enum.Font.GothamBlack
 keyTitle.TextColor3 = Color3.new(1, 1, 1)
@@ -149,18 +122,10 @@ keyStatus.TextScaled = true
 keyStatus.Font = Enum.Font.GothamBold
 keyStatus.TextColor3 = Color3.new(1, 1, 1)
 
---========================
--- WHITELIST CHECK
---========================
-
 if whitelist[player.Name] then
     gui.Enabled = true
     keyGui.Enabled = false
 end
-
---========================
--- KEY CHECK
---========================
 
 enter.MouseButton1Click:Connect(function()
     if keyBox.Text == correctKey then
@@ -176,17 +141,9 @@ enter.MouseButton1Click:Connect(function()
     end
 end)
 
---========================
--- OPEN / CLOSE
---========================
-
 open.MouseButton1Click:Connect(function()
     frame.Visible = not frame.Visible
 end)
-
---========================
--- CLICK EFFECT
---========================
 
 local function click(button)
     local old = button.Size
@@ -205,44 +162,33 @@ end
 click(open)
 click(enter)
 
---========================
--- HÀM TẠO NÚT
---========================
-
 local function makeButton(text, row, col, color)
     local b = Instance.new("TextButton")
     b.Parent = buttonContainer
     b.Size = UDim2.new(0, 120, 0, 35)
     b.Position = UDim2.new(0, 10 + (col - 1) * 130, 0, 10 + (row - 1) * 45)
     b.Text = text
-    b.TextScaled = false
     b.TextSize = 13
     b.Font = Enum.Font.GothamBold
     b.BackgroundColor3 = color or Color3.fromRGB(60, 60, 80)
     b.TextColor3 = Color3.new(1, 1, 1)
     b.BorderSizePixel = 0
-    
     Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
     click(b)
     return b
 end
 
---========================
--- AIM LOCK (LOOK ĐẦU)
---========================
-
 local aimbotEnabled = false
 local currentTarget = nil
-
-local aimBtn = makeButton(" AIM LOCK", 1, 1, Color3.fromRGB(80, 50, 120))
+local aimBtn = makeButton("AIM LOCK", 1, 1, Color3.fromRGB(80, 50, 120))
 
 local function updateAimButton()
     if aimbotEnabled then
-        aimBtn.Text = " AIM LOCK [ON]"
+        aimBtn.Text = "AIM LOCK ON"
         aimBtn.BackgroundColor3 = Color3.fromRGB(100, 70, 150)
         status.Text = "STATUS : AIM LOCK ON"
     else
-        aimBtn.Text = " AIM LOCK"
+        aimBtn.Text = "AIM LOCK"
         aimBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
         status.Text = "STATUS : READY"
         currentTarget = nil
@@ -254,18 +200,15 @@ local function getClosestPlayer()
     if not character or not character:FindFirstChild("HumanoidRootPart") then
         return nil
     end
-    
     local myPos = character.HumanoidRootPart.Position
     local closest = nil
     local closestDist = math.huge
-    
     for _, other in pairs(Players:GetPlayers()) do
         if other ~= player then
             local otherChar = other.Character
             if otherChar and otherChar:FindFirstChild("HumanoidRootPart") and otherChar:FindFirstChild("Head") then
                 local otherPos = otherChar.HumanoidRootPart.Position
                 local dist = (myPos - otherPos).Magnitude
-                
                 if dist < closestDist and dist < 150 then
                     closestDist = dist
                     closest = other
@@ -273,7 +216,6 @@ local function getClosestPlayer()
             end
         end
     end
-    
     return closest
 end
 
@@ -282,18 +224,13 @@ local function aimAt(target)
         currentTarget = nil
         return
     end
-    
     local head = target.Character:FindFirstChild("Head")
     local myCamera = workspace.CurrentCamera
-    local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-    
-    if not head or not myCamera or not myRoot then
+    if not head or not myCamera then
         return
     end
-    
-    local headPos = head.Position
     local cameraPos = myCamera.CFrame.Position
-    local newCFrame = CFrame.new(cameraPos, headPos)
+    local newCFrame = CFrame.new(cameraPos, head.Position)
     myCamera.CFrame = newCFrame
 end
 
@@ -313,99 +250,70 @@ RunService.RenderStepped:Connect(function()
         end
     end
 end)
---========================
--- ESP CHUYÊN NGHIỆP (NHÌN XUYÊN TƯỜNG)
---========================
 
 local espEnabled = false
-local espObjects = {}  -- Lưu các object ESP để xóa sau
+local espObjects = {}
+local espBtn = makeButton("ESP", 1, 2, Color3.fromRGB(50, 100, 150))
 
--- Tạo nút ESP
-local espBtn = makeButton("️ ESP", 1, 2, Color3.fromRGB(50, 100, 150))
-
--- Màu sắc cho từng đội (nếu có)
-local teamColors = {
-    ["Enemy"] = Color3.fromRGB(255, 0, 0),     -- Đỏ: kẻ địch
-    ["Friend"] = Color3.fromRGB(0, 255, 0),   -- Xanh: đồng đội
-    ["Neutral"] = Color3.fromRGB(255, 255, 0) -- Vàng: trung lập
-}
-
--- Hàm tạo Box ESP (khung quanh người)
-local function createBox(player)
-    if espObjects[player] then
-        destroyESP(player)
+local function createBox(targetPlayer)
+    if espObjects[targetPlayer] then
+        if espObjects[targetPlayer].billboard then espObjects[targetPlayer].billboard:Destroy() end
+        if espObjects[targetPlayer].box then espObjects[targetPlayer].box:Destroy() end
+        if espObjects[targetPlayer].line then espObjects[targetPlayer].line:Destroy() end
+        espObjects[targetPlayer] = nil
     end
     
-    local char = player.Character
+    local char = targetPlayer.Character
     if not char then return end
     
     local root = char:FindFirstChild("HumanoidRootPart")
     if not root then return end
     
-    -- Tạo BillboardGui hiển thị tên + máu
+    local head = char:FindFirstChild("Head")
+    if not head then return end
+    
     local billboard = Instance.new("BillboardGui")
-    billboard.Name = "ESP_Billboard"
     billboard.Size = UDim2.new(0, 200, 0, 50)
     billboard.StudsOffset = Vector3.new(0, 2.5, 0)
     billboard.AlwaysOnTop = true
-    billboard.Parent = char:WaitForChild("Head", 0.5) or char
+    billboard.Parent = head
     
-    -- Tên người chơi
     local nameLabel = Instance.new("TextLabel")
     nameLabel.Size = UDim2.new(1, 0, 0.5, 0)
     nameLabel.BackgroundTransparency = 1
-    nameLabel.Text = player.Name
-    nameLabel.TextColor3 = teamColors["Enemy"]
+    nameLabel.Text = targetPlayer.Name
+    nameLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
     nameLabel.TextStrokeTransparency = 0.3
     nameLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
     nameLabel.Font = Enum.Font.GothamBold
     nameLabel.TextSize = 14
     nameLabel.Parent = billboard
     
-    -- Khoảng cách
     local distLabel = Instance.new("TextLabel")
     distLabel.Size = UDim2.new(1, 0, 0.5, 0)
     distLabel.Position = UDim2.new(0, 0, 0.5, 0)
     distLabel.BackgroundTransparency = 1
     distLabel.Text = ""
     distLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    distLabel.TextStrokeTransparency = 0.3
     distLabel.Font = Enum.Font.Gotham
     distLabel.TextSize = 11
     distLabel.Parent = billboard
     
-    -- Khung Box (2D) - dùng Drawing nếu hỗ trợ, không thì dùng khung 3D
     local boxOutline = Instance.new("SelectionBox")
-    boxOutline.Name = "ESP_Box"
     boxOutline.Adornee = root
-    boxOutline.Color3 = teamColors["Enemy"]
+    boxOutline.Color3 = Color3.fromRGB(255, 0, 0)
     boxOutline.LineThickness = 0.05
     boxOutline.Transparency = 0.5
     boxOutline.Parent = char
     
-    -- Đường Line từ camera đến mục tiêu
-    local line = Instance.new("SelectionPartLasso")
-    line.Name = "ESP_Line"
-    line.Humanoid = char:FindFirstChild("Humanoid")
-    line.Part = root
-    line.Color3 = teamColors["Enemy"]
-    line.Transparency = 0.3
-    line.Visible = true
-    line.Parent = char
-    
-    -- Lưu lại để xóa sau
-    espObjects[player] = {
+    espObjects[targetPlayer] = {
         billboard = billboard,
         box = boxOutline,
-        line = line,
         nameLabel = nameLabel,
         distLabel = distLabel
     }
-    
-    return true
 end
 
--- Hàm cập nhật khoảng cách và màu sắc
 local function updateESP()
     local myChar = player.Character
     local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
@@ -414,61 +322,38 @@ local function updateESP()
         if other ~= player and espObjects[other] then
             local otherChar = other.Character
             local dist = ""
-            local color = teamColors["Enemy"]
+            local color = Color3.fromRGB(255, 0, 0)
             
             if myRoot and otherChar and otherChar:FindFirstChild("HumanoidRootPart") then
                 local distance = (myRoot.Position - otherChar.HumanoidRootPart.Position).Magnitude
                 dist = string.format("%.1f m", distance)
-                
-                -- Đổi màu theo khoảng cách
                 if distance < 30 then
-                    color = Color3.fromRGB(255, 50, 50)  -- Đỏ đậm (gần)
+                    color = Color3.fromRGB(255, 50, 50)
                 elseif distance < 70 then
-                    color = Color3.fromRGB(255, 150, 50) -- Cam (trung bình)
+                    color = Color3.fromRGB(255, 150, 50)
                 else
-                    color = Color3.fromRGB(255, 255, 100) -- Vàng (xa)
+                    color = Color3.fromRGB(255, 255, 100)
                 end
             end
             
             local data = espObjects[other]
             if data then
-                if data.nameLabel then
-                    data.nameLabel.TextColor3 = color
-                end
-                if data.distLabel then
-                    data.distLabel.Text = dist
-                end
-                if data.box then
-                    data.box.Color3 = color
-                end
-                if data.line then
-                    data.line.Color3 = color
-                end
+                if data.nameLabel then data.nameLabel.TextColor3 = color end
+                if data.distLabel then data.distLabel.Text = dist end
+                if data.box then data.box.Color3 = color end
             end
         end
     end
 end
 
--- Hàm xóa ESP của 1 player
-local function destroyESP(target)
-    local data = espObjects[target]
-    if data then
+local function destroyAllESP()
+    for target, data in pairs(espObjects) do
         if data.billboard then data.billboard:Destroy() end
         if data.box then data.box:Destroy() end
-        if data.line then data.line:Destroy() end
-        espObjects[target] = nil
-    end
-end
-
--- Hàm xóa toàn bộ ESP
-local function destroyAllESP()
-    for target, _ in pairs(espObjects) do
-        destroyESP(target)
     end
     espObjects = {}
 end
 
--- Tạo ESP cho tất cả người chơi
 local function createAllESP()
     destroyAllESP()
     for _, other in pairs(Players:GetPlayers()) do
@@ -478,7 +363,6 @@ local function createAllESP()
     end
 end
 
--- Cập nhật khi người chơi mới vào
 Players.PlayerAdded:Connect(function(newPlayer)
     if espEnabled then
         task.wait(0.5)
@@ -486,48 +370,30 @@ Players.PlayerAdded:Connect(function(newPlayer)
     end
 end)
 
--- Cập nhật khi người chơi rời
 Players.PlayerRemoving:Connect(function(leavingPlayer)
     if espObjects[leavingPlayer] then
-        destroyESP(leavingPlayer)
+        if espObjects[leavingPlayer].billboard then espObjects[leavingPlayer].billboard:Destroy() end
+        if espObjects[leavingPlayer].box then espObjects[leavingPlayer].box:Destroy() end
+        espObjects[leavingPlayer] = nil
     end
 end)
 
--- Cập nhật khi nhân vật xuất hiện
-local function onCharacterAdded(player, character)
-    if espEnabled and player ~= player then
-        task.wait(0.5)
-        createBox(player)
-    end
-end
-
-for _, other in pairs(Players:GetPlayers()) do
-    if other ~= player then
-        other.CharacterAdded:Connect(function()
-            onCharacterAdded(other)
-        end)
-    end
-end
-
--- Cập nhật ESP mỗi frame
 RunService.RenderStepped:Connect(function()
     if espEnabled then
         updateESP()
     end
 end)
 
--- Bật/tắt ESP
 local function toggleESP()
     espEnabled = not espEnabled
-    
     if espEnabled then
         createAllESP()
-        espBtn.Text = "️ ESP [ON]"
+        espBtn.Text = "ESP ON"
         espBtn.BackgroundColor3 = Color3.fromRGB(80, 130, 180)
         status.Text = "STATUS : ESP ON"
     else
         destroyAllESP()
-        espBtn.Text = "️ ESP"
+        espBtn.Text = "ESP"
         espBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
         status.Text = "STATUS : READY"
     end
@@ -535,31 +401,22 @@ end
 
 espBtn.MouseButton1Click:Connect(toggleESP)
 
--- Khi nhân vật chết thì xóa ESP cũ
 player.CharacterAdded:Connect(function()
     if espEnabled then
         task.wait(1)
         createAllESP()
     end
 end)
--end
-
---========================
--- TĂNG HITBOX TAY / VŨ KHÍ
---========================
 
 local weaponHitboxEnabled = false
-local weaponScale = 8  -- Kích thước vũ khí/tay
-
-local weaponBtn = makeButton(" HITBOX ", 2, 2, Color3.fromRGB(150, 80, 50))
-
+local weaponScale = 8
+local weaponBtn = makeButton("HITBOX", 2, 1, Color3.fromRGB(150, 80, 50))
 local originalWeaponSize = {}
 
 local function increaseWeaponHitbox()
     local char = player.Character
     if not char then return end
     
-    -- Tăng kích thước tay
     local arms = {"LeftUpperArm", "RightUpperArm", "LeftLowerArm", "RightLowerArm"}
     for _, armName in pairs(arms) do
         local arm = char:FindFirstChild(armName)
@@ -571,7 +428,6 @@ local function increaseWeaponHitbox()
         end
     end
     
-    -- Tăng kích thước tool/vũ khí đang cầm
     for _, tool in pairs(char:GetChildren()) do
         if tool:IsA("Tool") then
             for _, part in pairs(tool:GetDescendants()) do
@@ -587,7 +443,6 @@ local function increaseWeaponHitbox()
 end
 
 local function resetWeaponHitbox()
-    local char = player.Character
     for part, size in pairs(originalWeaponSize) do
         if part and part.Parent then
             part.Size = size
@@ -598,15 +453,14 @@ end
 
 local function toggleWeaponHitbox()
     weaponHitboxEnabled = not weaponHitboxEnabled
-    
     if weaponHitboxEnabled then
         increaseWeaponHitbox()
-        weaponBtn.Text = " HITBOX  [ON]"
+        weaponBtn.Text = "HITBOX ON"
         weaponBtn.BackgroundColor3 = Color3.fromRGB(180, 100, 60)
-        status.Text = "STATUS : WEAPON HITBOX X" .. weaponScale
+        status.Text = "STATUS : HITBOX X" .. weaponScale
     else
         resetWeaponHitbox()
-        weaponBtn.Text = " HITBOX "
+        weaponBtn.Text = "HITBOX"
         weaponBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
         status.Text = "STATUS : READY"
     end
