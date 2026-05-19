@@ -664,5 +664,3 @@ itemEspBtn.MouseButton1Click:Connect(toggleItemESP)
 player.CharacterAdded:Connect(function()
     if itemEspEnabled then task.wait(1) refreshItemESP() end
 end)
-
-print("ITEM ESP da san sang!")
