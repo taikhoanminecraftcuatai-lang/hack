@@ -516,211 +516,90 @@ Players.PlayerRemoving:Connect(function()
     end
 end)
 --========================
--- ESP DO NHAT DUOC (CO THE NHAT)
+-- HUT DO VAT (BRING ITEMS)
 --========================
 
-local itemEspEnabled = false
-local itemEspRadius = 100
-local itemEspList = {}
+local bringEnabled = false
+local bringRadius = 50
+local bringList = {}
 
-local itemEspBtn = makeButton("ITEM ESP", 2, 2, Color3.fromRGB(80, 150, 80))
+local bringBtn = makeButton("BRING ITEMS", 3, 1, Color3.fromRGB(100, 80, 150))
 
--- Danh sach ten do co the nhat (them tuy y)
-local pickupItems = {
-    "coin", "money", "gold", "gem", "diamond", "ruby", "crystal", "emerald",
-    "health", "med", "heal", "bandage", "potion", "food", "apple", "berry", "meat",
-    "ammo", "bullet", "magazine", "shell", "rocket", "arrow",
-    "key", "card", "pass", "token",
-    "chest", "crate", "bag", "backpack", "loot",
-    "weapon", "gun", "sword", "knife", "axe", "hammer", "bow",
-    "wood", "stone", "ore", "ingot", "leather", "cloth", "herb",
-    "scroll", "book", "potion", "elixir", "vial",
-}
-
-local function isPickupItem(itemName)
-    local lower = itemName:lower()
-    for _, name in pairs(pickupItems) do
-        if lower:find(name) then
-            return true
+local function isItemObject(obj)
+    -- Bo qua nguoi choi
+    for _, p in pairs(Players:GetPlayers()) do
+        if obj:IsDescendantOf(p.Character) then
+            return false
         end
     end
-    return false
+    
+    -- Bo qua ban than minh
+    if obj:IsDescendantOf(player.Character) then
+        return false
+    end
+    
+    -- Bo qua terrain va part co ban
+    if obj.Name == "Terrain" then return false end
+    local generic = {"Part", "CylinderPart", "WedgePart", "MeshPart", "Union"}
+    for _, name in pairs(generic) do
+        if obj.Name == name then return false end
+    end
+    
+    return obj:IsA("BasePart") or obj:IsA("Tool")
 end
 
--- Kiem tra xem vat pham co the nhat duoc khong
-local function canPickup(obj)
-    -- Co ClickDetector?
-    if obj:FindFirstChild("ClickDetector") then
-        return true
-    end
+local function bringItems()
+    local char = player.Character
+    if not char then return end
     
-    -- Hoac tool (vu khi, do dung)
-    if obj:IsA("Tool") then
-        return true
-    end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
     
-    -- Hoac co ten trong danh sach do nhap
-    if isPickupItem(obj.Name) then
-        return true
-    end
-    
-    -- Hoac co trong model co chua child la tool
-    if obj:IsA("Model") and obj:FindFirstChildWhichIsA("Tool") then
-        return true
-    end
-    
-    return false
-end
-
-local function createItemESP(itemPart, itemName)
-    local bill = Instance.new("BillboardGui")
-    bill.Size = UDim2.new(0, 140, 0, 35)
-    bill.StudsOffset = Vector3.new(0, 1.5, 0)
-    bill.AlwaysOnTop = true
-    bill.Parent = itemPart
-    
-    local nameLabel = Instance.new("TextLabel")
-    nameLabel.Size = UDim2.new(1, 0, 0.6, 0)
-    nameLabel.BackgroundTransparency = 1
-    nameLabel.Text = itemName
-    nameLabel.TextSize = 12
-    nameLabel.Font = Enum.Font.GothamBold
-    nameLabel.TextXAlignment = Enum.TextXAlignment.Center
-    nameLabel.TextStrokeTransparency = 0.3
-    nameLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
-    nameLabel.Parent = bill
-    
-    local distLabel = Instance.new("TextLabel")
-    distLabel.Size = UDim2.new(1, 0, 0.4, 0)
-    distLabel.Position = UDim2.new(0, 0, 0.6, 0)
-    distLabel.BackgroundTransparency = 1
-    distLabel.Text = ""
-    distLabel.TextSize = 10
-    distLabel.Font = Enum.Font.Gotham
-    distLabel.TextXAlignment = Enum.TextXAlignment.Center
-    distLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-    distLabel.Parent = bill
-    
-    return {bill = bill, nameLabel = nameLabel, distLabel = distLabel, part = itemPart}
-end
-
-local function getPickupItems()
-    local items = {}
-    local myChar = player.Character
-    if not myChar then return items end
-    local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-    if not myRoot then return items end
-    local myPos = myRoot.Position
+    local myPos = root.Position
     
     for _, obj in pairs(workspace:GetDescendants()) do
-        -- Bo qua nguoi choi
-        local isPlayer = false
-        for _, p in pairs(Players:GetPlayers()) do
-            if obj:IsDescendantOf(p.Character) then
-                isPlayer = true
-                break
+        if isItemObject(obj) then
+            local objPos = obj:IsA("BasePart") and obj.Position or (obj:FindFirstChild("Handle") and obj.Handle.Position)
+            if objPos then
+                local dist = (myPos - objPos).Magnitude
+                if dist <= bringRadius then
+                    -- Keo vat pham ve phia nguoi choi
+                    local bodyVel = Instance.new("BodyVelocity")
+                    bodyVel.MaxForce = Vector3.new(1,1,1) * math.huge
+                    bodyVel.Velocity = (myPos - objPos).Unit * 50
+                    bodyVel.Parent = obj
+                    
+                    task.wait(0.05)
+                    bodyVel:Destroy()
+                end
             end
-        end
-        if isPlayer then continue end
-        
-        -- Bo qua ban than minh
-        if obj:IsDescendantOf(myChar) then continue end
-        
-        -- Bo qua terrain
-        if obj.Name == "Terrain" then continue end
-        
-        -- Kiem tra co the nhat khong
-        if canPickup(obj) then
-            local part = obj
-            if obj:IsA("Model") then
-                part = obj:FindFirstChild("Head") or obj:FindFirstChild("Handle") or obj:FindFirstChildWhichIsA("BasePart")
-                if not part then part = obj end
-            end
-            
-            local dist = (myPos - (part.Position or obj.Position)).Magnitude
-            if dist <= itemEspRadius then
-                table.insert(items, {part = part, name = obj.Name})
-            end
-        end
-    end
-    return items
-end
-
-local function clearESP()
-    for _, esp in pairs(itemEspList) do
-        if esp and esp.bill then esp.bill:Destroy() end
-    end
-    itemEspList = {}
-end
-
-local function refreshESP()
-    clearESP()
-    local items = getPickupItems()
-    for _, item in pairs(items) do
-        if item.part and item.part.Parent then
-            local esp = createItemESP(item.part, item.name)
-            table.insert(itemEspList, esp)
         end
     end
 end
 
-local function updateDistances()
-    local myChar = player.Character
-    if not myChar then return end
-    local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-    if not myRoot then return end
-    local myPos = myRoot.Position
+local bringLoop = nil
+
+local function toggleBring()
+    bringEnabled = not bringEnabled
     
-    for _, esp in pairs(itemEspList) do
-        if esp and esp.part and esp.part.Parent then
-            local dist = (myPos - esp.part.Position).Magnitude
-            esp.distLabel.Text = string.format("%.1fm", dist)
-            esp.bill.Enabled = (dist <= itemEspRadius)
-        end
-    end
-end
-
-local function scanNewItems()
-    local currentParts = {}
-    for _, esp in pairs(itemEspList) do
-        if esp and esp.part then currentParts[esp.part] = true end
-    end
-    local items = getPickupItems()
-    for _, item in pairs(items) do
-        if item.part and item.part.Parent and not currentParts[item.part] then
-            table.insert(itemEspList, createItemESP(item.part, item.name))
-        end
-    end
-end
-
-local scanLoop = nil
-
-local function toggleESP()
-    itemEspEnabled = not itemEspEnabled
-    
-    if itemEspEnabled then
-        refreshESP()
-        itemEspBtn.Text = "ITEM ESP ON"
-        itemEspBtn.BackgroundColor3 = Color3.fromRGB(100, 180, 100)
-        status.Text = "STATUS : ITEM ESP ON"
-        if scanLoop then scanLoop:Disconnect() end
-        scanLoop = RunService.RenderStepped:Connect(function()
-            if itemEspEnabled then
-                scanNewItems()
-                updateDistances()
+    if bringEnabled then
+        bringBtn.Text = "BRING ITEMS ON"
+        bringBtn.BackgroundColor3 = Color3.fromRGB(130, 100, 180)
+        status.Text = "STATUS : BRING ITEMS ON"
+        
+        if bringLoop then bringLoop:Disconnect() end
+        bringLoop = RunService.RenderStepped:Connect(function()
+            if bringEnabled then
+                bringItems()
             end
         end)
     else
-        clearESP()
-        itemEspBtn.Text = "ITEM ESP"
-        itemEspBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+        bringBtn.Text = "BRING ITEMS"
+        bringBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
         status.Text = "STATUS : READY"
-        if scanLoop then scanLoop:Disconnect() scanLoop = nil end
+        
+        if bringLoop then bringLoop:Disconnect() bringLoop = nil end
     end
 end
 
-itemEspBtn.MouseButton1Click:Connect(toggleESP)
-
-player.CharacterAdded:Connect(function()
-    if itemEspEnabled then task.wait(1) refreshESP() end
-end)
+bringBtn.MouseButton1Click:Connect(toggleBring)
