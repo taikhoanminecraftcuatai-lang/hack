@@ -253,7 +253,7 @@ end)
 
 local espEnabled = false
 local espObjects = {}
-local espBtn = makeButton("ESP", 1, 2, Color3.fromRGB(50, 100, 150))
+local espBtn = makeButton("ESP PLAYER", 1, 2, Color3.fromRGB(50, 100, 150))
 
 local function createBox(targetPlayer)
     if espObjects[targetPlayer] then
@@ -388,12 +388,12 @@ local function toggleESP()
     espEnabled = not espEnabled
     if espEnabled then
         createAllESP()
-        espBtn.Text = "ESP ON"
+        espBtn.Text = "ESP PLAYER ON"
         espBtn.BackgroundColor3 = Color3.fromRGB(80, 130, 180)
-        status.Text = "STATUS : ESP ON"
+        status.Text = "STATUS : ESP PLAYER ON"
     else
         destroyAllESP()
-        espBtn.Text = "ESP"
+        espBtn.Text = "ESP PLAYER"
         espBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
         status.Text = "STATUS : READY"
     end
