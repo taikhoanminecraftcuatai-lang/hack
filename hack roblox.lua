@@ -542,165 +542,137 @@ player.CharacterAdded:Connect(function()
         createAllESP()
     end
 end)
+-end
+
 --========================
--- KILL MOD AURA (TỰ ĐỘNG SÁT THƯƠNG)
+-- KILL MOD AURA (CHO QUÁI VẬT / MOB)
 --========================
 
 local killAuraEnabled = false
-local killRange = 50  -- Khoảng cách kill (studs)
-local killDelay = 0.1  -- Thời gian giữa các lần tấn công (giây)
+local killRange = 40  -- Khoảng cách kill quái (studs)
+local killDelay = 0.1  -- Thời gian giữa các lần tấn công
 
-local killBtn = makeButton(" KILL AURA", 2, 1, Color3.fromRGB(120, 20, 40))
+local killBtn = makeButton(" KILL MOB", 2, 1, Color3.fromRGB(120, 20, 40))
 
--- Cập nhật nút
 local function updateKillButton()
     if killAuraEnabled then
-        killBtn.Text = " KILL AURA [ON]"
+        killBtn.Text = " KILL MOB [ON]"
         killBtn.BackgroundColor3 = Color3.fromRGB(180, 30, 50)
-        status.Text = "STATUS : KILL AURA ON (Range: " .. killRange .. ")"
+        status.Text = "STATUS : KILL MOB ON (Range: " .. killRange .. ")"
     else
-        killBtn.Text = " KILL AURA"
+        killBtn.Text = " KILL MOB"
         killBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
         status.Text = "STATUS : READY"
     end
 end
 
--- Tìm người chơi gần nhất
-local function getClosestEnemy()
+-- Tìm tất cả các thực thể (quái vật, NPC, vật thể có thể kill)
+local function getAllMobs()
+    local mobs = {}
     local character = player.Character
-    if not character or not character:FindFirstChild("HumanoidRootPart") then
-        return nil, math.huge
-    end
+    if not character then return mobs end
     
-    local myPos = character.HumanoidRootPart.Position
-    local closest = nil
-    local closestDist = killRange + 1
+    local myPos = character:FindFirstChild("HumanoidRootPart")
+    if not myPos then return mobs end
     
-    for _, other in pairs(Players:GetPlayers()) do
-        if other ~= player then
-            local otherChar = other.Character
-            if otherChar and otherChar:FindFirstChild("HumanoidRootPart") then
-                local otherPos = otherChar.HumanoidRootPart.Position
-                local dist = (myPos - otherPos).Magnitude
-                if dist < closestDist and dist <= killRange then
-                    closestDist = dist
-                    closest = other
+    -- Duyệt tất cả trong workspace
+    for _, obj in pairs(workspace:GetDescendants()) do
+        -- Kiểm tra nếu object có Humanoid (quái vật, NPC, thú)
+        local humanoid = obj:FindFirstChild("Humanoid")
+        if humanoid and humanoid.Health and humanoid.Health > 0 then
+            -- Lọc bỏ player và chính mình
+            local isPlayer = false
+            for _, p in pairs(Players:GetPlayers()) do
+                if p.Character == obj or obj:IsDescendantOf(p.Character) then
+                    isPlayer = true
+                    break
+                end
+            end
+            
+            if not isPlayer and obj ~= character and not obj:IsDescendantOf(character) then
+                local root = obj:FindFirstChild("HumanoidRootPart") or obj:FindFirstChild("Torso") or obj:FindFirstChild("UpperTorso")
+                if root then
+                    local dist = (myPos.Position - root.Position).Magnitude
+                    if dist <= killRange then
+                        table.insert(mobs, {
+                            object = obj,
+                            humanoid = humanoid,
+                            root = root,
+                            distance = dist
+                        })
+                    end
                 end
             end
         end
-    end
-    
-    return closest, closestDist
-end
-
--- Các cách gây sát thương
-local function damageMethod1(targetChar)
-    -- Cách 1: Hạ Humanoid trực tiếp
-    local hum = targetChar:FindFirstChild("Humanoid")
-    if hum and hum.Health then
-        hum.Health = 0
-        return true
-    end
-    return false
-end
-
-local function damageMethod2(targetChar)
-    -- Cách 2: Dùng Explosion (nổ)
-    local root = targetChar:FindFirstChild("HumanoidRootPart")
-    if root then
-        local exp = Instance.new("Explosion")
-        exp.Position = root.Position
-        exp.BlastRadius = 10
-        exp.BlastPressure = 1000000
-        exp.Parent = workspace
-        task.wait(0.05)
-        exp:Destroy()
-        return true
-    end
-    return false
-end
-
-local function damageMethod3(targetChar)
-    -- Cách 3: Hất văng khỏi map
-    local root = targetChar:FindFirstChild("HumanoidRootPart")
-    if root then
-        local bv = Instance.new("BodyVelocity")
-        bv.MaxForce = Vector3.new(1,1,1) * math.huge
-        bv.Velocity = Vector3.new(0, 500, 0)
-        bv.Parent = root
-        task.wait(0.1)
-        bv:Destroy()
-        return true
-    end
-    return false
-end
-
-local function damageMethod4(targetChar)
-    -- Cách 4: Fire (lửa)
-    local root = targetChar:FindFirstChild("HumanoidRootPart")
-    if root then
-        local fire = Instance.new("Fire")
-        fire.Heat = 100
-        fire.Size = 10
-        fire.Parent = root
-        task.wait(0.2)
-        fire:Destroy()
-        return true
-    end
-    return false
-end
-
--- Tấn công mục tiêu
-local function killTarget(target)
-    if not target or not target.Character then
-        return
-    end
-    
-    local targetChar = target.Character
-    
-    -- Thử từng cách gây sát thương
-    if damageMethod1(targetChar) then
-        return
-    elseif damageMethod2(targetChar) then
-        return
-    elseif damageMethod3(targetChar) then
-        return
-    elseif damageMethod4(targetChar) then
-        return
-    end
-    
-    -- Cách cuối: Dùng raycast để bắn
-    local myChar = player.Character
-    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-    local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
-    
-    if myRoot and targetRoot then
-        local direction = (targetRoot.Position - myRoot.Position).Unit
-        local ray = Ray.new(myRoot.Position, direction * killRange)
-        local hit = workspace:FindPartOnRay(ray, myChar)
         
-        if hit and hit:IsDescendantOf(targetChar) then
-            local hum = targetChar:FindFirstChild("Humanoid")
-            if hum then
-                hum.Health = 0
+        -- Kiểm tra object có thể bị phá hủy (crate, barrel, door...)
+        if obj:IsA("BasePart") and obj.Name:lower():find("break") or obj.Name:lower():find("crate") or obj.Name:lower():find("barrel") or obj.Name:lower():find("destruct") then
+            local root = obj:FindFirstChild("HumanoidRootPart") or obj
+            local dist = (myPos.Position - root.Position).Magnitude
+            if dist <= killRange then
+                table.insert(mobs, {
+                    object = obj,
+                    humanoid = nil,
+                    root = root,
+                    isPart = true
+                })
             end
         end
     end
+    
+    -- Sắp xếp theo khoảng cách gần nhất
+    table.sort(mobs, function(a, b)
+        return a.distance < b.distance
+    end)
+    
+    return mobs
+end
+
+-- Tiêu diệt quái vật
+local function killMob(mob)
+    if not mob then return end
+    
+    -- Nếu là Humanoid (quái vật, NPC)
+    if mob.humanoid then
+        -- Cách 1: Hạ health về 0
+        mob.humanoid.Health = 0
+        
+        -- Cách 2: Break joints (làm rã rời)
+        if mob.root then
+            mob.root:BreakJoints()
+        end
+        
+        -- Cách 3: Dùng explosion
+        local exp = Instance.new("Explosion")
+        exp.BlastRadius = 5
+        exp.BlastPressure = 100000
+        exp.Position = mob.root.Position
+        exp.Parent = workspace
+        task.wait(0.05)
+        exp:Destroy()
+        
+        return true
+        
+    -- Nếu là BasePart (crate, barrel...)
+    elseif mob.isPart and mob.object then
+        mob.object:Destroy()
+        return true
+    end
+    
+    return false
 end
 
 -- Quay mặt về hướng mục tiêu
-local function lookAtTarget(target)
+local function lookAtMob(mob)
     local myChar = player.Character
     local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-    local targetChar = target and target.Character
-    local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
     
-    if myRoot and targetRoot then
-        myRoot.CFrame = CFrame.new(myRoot.Position, targetRoot.Position)
+    if myRoot and mob and mob.root then
+        myRoot.CFrame = CFrame.new(myRoot.Position, mob.root.Position)
     end
 end
 
--- Tạo vòng lặp Kill Aura
+-- Kill Aura Loop
 local killLoop = nil
 
 local function startKillAura()
@@ -708,11 +680,17 @@ local function startKillAura()
     
     killLoop = coroutine.wrap(function()
         while killAuraEnabled do
-            local target, dist = getClosestEnemy()
-            if target then
-                lookAtTarget(target)
-                killTarget(target)
+            local mobs = getAllMobs()
+            
+            if #mobs > 0 then
+                -- Kill từng con một (gần nhất trước)
+                for _, mob in pairs(mobs) do
+                    lookAtMob(mob)
+                    killMob(mob)
+                    task.wait(0.05)  -- Delay giữa các lần kill
+                end
             end
+            
             task.wait(killDelay)
         end
         killLoop = nil
@@ -720,7 +698,6 @@ local function startKillAura()
     killLoop()
 end
 
--- Bật/tắt Kill Aura
 killBtn.MouseButton1Click:Connect(function()
     killAuraEnabled = not killAuraEnabled
     updateKillButton()
