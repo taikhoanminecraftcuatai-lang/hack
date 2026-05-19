@@ -545,172 +545,78 @@ end)
 -end
 
 --========================
--- KILL MOD AURA (CHO QUÁI VẬT / MOB)
+-- TĂNG HITBOX TAY / VŨ KHÍ
 --========================
 
-local killAuraEnabled = false
-local killRange = 40  -- Khoảng cách kill quái (studs)
-local killDelay = 0.1  -- Thời gian giữa các lần tấn công
+local weaponHitboxEnabled = false
+local weaponScale = 8  -- Kích thước vũ khí/tay
 
-local killBtn = makeButton(" KILL MOB", 2, 1, Color3.fromRGB(120, 20, 40))
+local weaponBtn = makeButton(" HITBOX ", 2, 2, Color3.fromRGB(150, 80, 50))
 
-local function updateKillButton()
-    if killAuraEnabled then
-        killBtn.Text = " KILL MOB [ON]"
-        killBtn.BackgroundColor3 = Color3.fromRGB(180, 30, 50)
-        status.Text = "STATUS : KILL MOB ON (Range: " .. killRange .. ")"
+local originalWeaponSize = {}
+
+local function increaseWeaponHitbox()
+    local char = player.Character
+    if not char then return end
+    
+    -- Tăng kích thước tay
+    local arms = {"LeftUpperArm", "RightUpperArm", "LeftLowerArm", "RightLowerArm"}
+    for _, armName in pairs(arms) do
+        local arm = char:FindFirstChild(armName)
+        if arm and arm:IsA("BasePart") then
+            if not originalWeaponSize[arm] then
+                originalWeaponSize[arm] = arm.Size
+            end
+            arm.Size = originalWeaponSize[arm] * weaponScale
+        end
+    end
+    
+    -- Tăng kích thước tool/vũ khí đang cầm
+    for _, tool in pairs(char:GetChildren()) do
+        if tool:IsA("Tool") then
+            for _, part in pairs(tool:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    if not originalWeaponSize[part] then
+                        originalWeaponSize[part] = part.Size
+                    end
+                    part.Size = originalWeaponSize[part] * weaponScale
+                end
+            end
+        end
+    end
+end
+
+local function resetWeaponHitbox()
+    local char = player.Character
+    for part, size in pairs(originalWeaponSize) do
+        if part and part.Parent then
+            part.Size = size
+        end
+    end
+    originalWeaponSize = {}
+end
+
+local function toggleWeaponHitbox()
+    weaponHitboxEnabled = not weaponHitboxEnabled
+    
+    if weaponHitboxEnabled then
+        increaseWeaponHitbox()
+        weaponBtn.Text = " HITBOX  [ON]"
+        weaponBtn.BackgroundColor3 = Color3.fromRGB(180, 100, 60)
+        status.Text = "STATUS : WEAPON HITBOX X" .. weaponScale
     else
-        killBtn.Text = " KILL MOB"
-        killBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+        resetWeaponHitbox()
+        weaponBtn.Text = " HITBOX "
+        weaponBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
         status.Text = "STATUS : READY"
     end
 end
 
--- Tìm tất cả các thực thể (quái vật, NPC, vật thể có thể kill)
-local function getAllMobs()
-    local mobs = {}
-    local character = player.Character
-    if not character then return mobs end
-    
-    local myPos = character:FindFirstChild("HumanoidRootPart")
-    if not myPos then return mobs end
-    
-    -- Duyệt tất cả trong workspace
-    for _, obj in pairs(workspace:GetDescendants()) do
-        -- Kiểm tra nếu object có Humanoid (quái vật, NPC, thú)
-        local humanoid = obj:FindFirstChild("Humanoid")
-        if humanoid and humanoid.Health and humanoid.Health > 0 then
-            -- Lọc bỏ player và chính mình
-            local isPlayer = false
-            for _, p in pairs(Players:GetPlayers()) do
-                if p.Character == obj or obj:IsDescendantOf(p.Character) then
-                    isPlayer = true
-                    break
-                end
-            end
-            
-            if not isPlayer and obj ~= character and not obj:IsDescendantOf(character) then
-                local root = obj:FindFirstChild("HumanoidRootPart") or obj:FindFirstChild("Torso") or obj:FindFirstChild("UpperTorso")
-                if root then
-                    local dist = (myPos.Position - root.Position).Magnitude
-                    if dist <= killRange then
-                        table.insert(mobs, {
-                            object = obj,
-                            humanoid = humanoid,
-                            root = root,
-                            distance = dist
-                        })
-                    end
-                end
-            end
-        end
-        
-        -- Kiểm tra object có thể bị phá hủy (crate, barrel, door...)
-        if obj:IsA("BasePart") and obj.Name:lower():find("break") or obj.Name:lower():find("crate") or obj.Name:lower():find("barrel") or obj.Name:lower():find("destruct") then
-            local root = obj:FindFirstChild("HumanoidRootPart") or obj
-            local dist = (myPos.Position - root.Position).Magnitude
-            if dist <= killRange then
-                table.insert(mobs, {
-                    object = obj,
-                    humanoid = nil,
-                    root = root,
-                    isPart = true
-                })
-            end
-        end
-    end
-    
-    -- Sắp xếp theo khoảng cách gần nhất
-    table.sort(mobs, function(a, b)
-        return a.distance < b.distance
-    end)
-    
-    return mobs
-end
+weaponBtn.MouseButton1Click:Connect(toggleWeaponHitbox)
 
--- Tiêu diệt quái vật
-local function killMob(mob)
-    if not mob then return end
-    
-    -- Nếu là Humanoid (quái vật, NPC)
-    if mob.humanoid then
-        -- Cách 1: Hạ health về 0
-        mob.humanoid.Health = 0
-        
-        -- Cách 2: Break joints (làm rã rời)
-        if mob.root then
-            mob.root:BreakJoints()
-        end
-        
-        -- Cách 3: Dùng explosion
-        local exp = Instance.new("Explosion")
-        exp.BlastRadius = 5
-        exp.BlastPressure = 100000
-        exp.Position = mob.root.Position
-        exp.Parent = workspace
-        task.wait(0.05)
-        exp:Destroy()
-        
-        return true
-        
-    -- Nếu là BasePart (crate, barrel...)
-    elseif mob.isPart and mob.object then
-        mob.object:Destroy()
-        return true
-    end
-    
-    return false
-end
-
--- Quay mặt về hướng mục tiêu
-local function lookAtMob(mob)
-    local myChar = player.Character
-    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-    
-    if myRoot and mob and mob.root then
-        myRoot.CFrame = CFrame.new(myRoot.Position, mob.root.Position)
-    end
-end
-
--- Kill Aura Loop
-local killLoop = nil
-
-local function startKillAura()
-    if killLoop then return end
-    
-    killLoop = coroutine.wrap(function()
-        while killAuraEnabled do
-            local mobs = getAllMobs()
-            
-            if #mobs > 0 then
-                -- Kill từng con một (gần nhất trước)
-                for _, mob in pairs(mobs) do
-                    lookAtMob(mob)
-                    killMob(mob)
-                    task.wait(0.05)  -- Delay giữa các lần kill
-                end
-            end
-            
-            task.wait(killDelay)
-        end
-        killLoop = nil
-    end)
-    killLoop()
-end
-
-killBtn.MouseButton1Click:Connect(function()
-    killAuraEnabled = not killAuraEnabled
-    updateKillButton()
-    
-    if killAuraEnabled then
-        startKillAura()
-    end
-end)
-
--- Khi nhân vật respawn
 player.CharacterAdded:Connect(function()
-    if killAuraEnabled then
+    if weaponHitboxEnabled then
         task.wait(0.5)
-        startKillAura()
+        increaseWeaponHitbox()
     end
 end)
