@@ -407,3 +407,111 @@ player.CharacterAdded:Connect(function()
         createAllESP()
     end
 end)
+local swapMenuBtn = makeButton("SWAP", 2, 1, Color3.fromRGB(150, 80, 100))
+
+local swapFrame = Instance.new("Frame")
+swapFrame.Parent = frame
+swapFrame.Size = UDim2.new(0, 200, 0, 300)
+swapFrame.Position = UDim2.new(1, 10, 0, 60)
+swapFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+swapFrame.BackgroundTransparency = 0.1
+swapFrame.BorderSizePixel = 0
+swapFrame.Visible = false
+swapFrame.Active = true
+swapFrame.Draggable = true
+
+local swapCorner = Instance.new("UICorner")
+swapCorner.CornerRadius = UDim.new(0, 10)
+swapCorner.Parent = swapFrame
+
+local swapTitle = Instance.new("TextLabel")
+swapTitle.Parent = swapFrame
+swapTitle.Size = UDim2.new(1, 0, 0, 30)
+swapTitle.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+swapTitle.Text = "CHON NGUOI DOI VI TRI"
+swapTitle.TextColor3 = Color3.new(1, 1, 1)
+swapTitle.Font = Enum.Font.GothamBold
+swapTitle.TextSize = 12
+swapTitle.Parent = swapFrame
+
+local playerList = Instance.new("ScrollingFrame")
+playerList.Parent = swapFrame
+playerList.Size = UDim2.new(1, -10, 1, -40)
+playerList.Position = UDim2.new(0, 5, 0, 35)
+playerList.BackgroundTransparency = 1
+playerList.CanvasSize = UDim2.new(0, 0, 0, 0)
+playerList.ScrollBarThickness = 5
+
+local listLayout = Instance.new("UIListLayout")
+listLayout.Parent = playerList
+listLayout.SortOrder = Enum.SortOrder.Name
+listLayout.Padding = UDim.new(0, 5)
+
+local function updatePlayerListUI()
+    for _, child in pairs(playerList:GetChildren()) do
+        if child:IsA("TextButton") then
+            child:Destroy()
+        end
+    end
+    
+    local ySize = 0
+    for _, other in pairs(Players:GetPlayers()) do
+        if other ~= player then
+            local btn = Instance.new("TextButton")
+            btn.Size = UDim2.new(1, -10, 0, 35)
+            btn.Text = other.Name
+            btn.TextSize = 12
+            btn.Font = Enum.Font.Gotham
+            btn.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+            btn.TextColor3 = Color3.new(1, 1, 1)
+            btn.BorderSizePixel = 0
+            btn.Parent = playerList
+            
+            local btnCorner = Instance.new("UICorner")
+            btnCorner.CornerRadius = UDim.new(0, 6)
+            btnCorner.Parent = btn
+            
+            btn.MouseButton1Click:Connect(function()
+                local myChar = player.Character
+                local targetChar = other.Character
+                local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+                local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
+                
+                if myRoot and targetRoot then
+                    local myPos = myRoot.CFrame
+                    local targetPos = targetRoot.CFrame
+                    
+                    myRoot.CFrame = targetPos + Vector3.new(0, 3, 0)
+                    targetRoot.CFrame = myPos + Vector3.new(0, 3, 0)
+                    
+                    status.Text = "STATUS : DA DOI VI TRI VOI " .. other.Name
+                    swapFrame.Visible = false
+                else
+                    status.Text = "STATUS : KHONG THE DOI VI TRI"
+                end
+            end)
+            
+            ySize = ySize + 40
+        end
+    end
+    playerList.CanvasSize = UDim2.new(0, 0, 0, ySize)
+end
+
+swapMenuBtn.MouseButton1Click:Connect(function()
+    swapFrame.Visible = not swapFrame.Visible
+    if swapFrame.Visible then
+        updatePlayerListUI()
+    end
+end)
+
+Players.PlayerAdded:Connect(function()
+    if swapFrame.Visible then
+        updatePlayerListUI()
+    end
+end)
+
+Players.PlayerRemoving:Connect(function()
+    if swapFrame.Visible then
+        updatePlayerListUI()
+    end
+end)
