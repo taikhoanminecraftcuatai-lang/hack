@@ -177,9 +177,13 @@ local function makeButton(text, row, col, color)
     click(b)
     return b
 end
+--========================
+-- AIM LOCK (CUC MANH VAO DAU)
+--========================
 
 local aimbotEnabled = false
 local currentTarget = nil
+
 local aimBtn = makeButton("AIM LOCK", 1, 1, Color3.fromRGB(80, 50, 120))
 
 local function updateAimButton()
@@ -195,6 +199,7 @@ local function updateAimButton()
     end
 end
 
+-- Tim nguoi gan nhat (co the dung de tim target ban dau)
 local function getClosestPlayer()
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then
@@ -207,11 +212,14 @@ local function getClosestPlayer()
         if other ~= player then
             local otherChar = other.Character
             if otherChar and otherChar:FindFirstChild("HumanoidRootPart") and otherChar:FindFirstChild("Head") then
-                local otherPos = otherChar.HumanoidRootPart.Position
-                local dist = (myPos - otherPos).Magnitude
-                if dist < closestDist and dist < 150 then
-                    closestDist = dist
-                    closest = other
+                local hum = otherChar:FindFirstChild("Humanoid")
+                if hum and hum.Health and hum.Health > 0 then
+                    local otherPos = otherChar.HumanoidRootPart.Position
+                    local dist = (myPos - otherPos).Magnitude
+                    if dist < closestDist and dist < 150 then
+                        closestDist = dist
+                        closest = other
+                    end
                 end
             end
         end
@@ -219,38 +227,80 @@ local function getClosestPlayer()
     return closest
 end
 
-local function aimAt(target)
+-- Kiem tra target con song khong
+local function isTargetAlive(target)
     if not target or not target.Character then
-        currentTarget = nil
-        return
+        return false
     end
-    local head = target.Character:FindFirstChild("Head")
-    local myCamera = workspace.CurrentCamera
-    if not head or not myCamera then
-        return
+    local hum = target.Character:FindFirstChild("Humanoid")
+    if hum and hum.Health and hum.Health > 0 then
+        return true
     end
-    local cameraPos = myCamera.CFrame.Position
-    local newCFrame = CFrame.new(cameraPos, head.Position)
-    myCamera.CFrame = newCFrame
+    return false
 end
 
+-- Lock vao dau cuc manh
+local function aimAtTarget(target)
+    if not target or not target.Character then
+        return false
+    end
+    
+    local head = target.Character:FindFirstChild("Head")
+    local myCamera = workspace.CurrentCamera
+    
+    if not head or not myCamera then
+        return false
+    end
+    
+    -- Lock truc tiep vao dau, khong qua trung gian
+    local cameraPos = myCamera.CFrame.Position
+    local headPos = head.Position
+    
+    -- Tao CFrame nhin thang vao dau
+    local newCFrame = CFrame.new(cameraPos, headPos)
+    myCamera.CFrame = newCFrame
+    
+    return true
+end
+
+-- Tìm target mới (chỉ gọi khi target cũ chết hoặc chưa có target)
+local function findNewTarget()
+    local closest = getClosestPlayer()
+    if closest then
+        currentTarget = closest
+        return true
+    end
+    currentTarget = nil
+    return false
+end
+
+-- Bat/tat Aim Lock
 aimBtn.MouseButton1Click:Connect(function()
     aimbotEnabled = not aimbotEnabled
+    
+    if aimbotEnabled then
+        findNewTarget()  -- Tim target ngay khi bat
+    else
+        currentTarget = nil
+    end
+    
     updateAimButton()
 end)
 
+-- Vong lap chinh
 RunService.RenderStepped:Connect(function()
     if aimbotEnabled then
-        local target = getClosestPlayer()
-        if target then
-            currentTarget = target
-            aimAt(target)
-        else
-            currentTarget = nil
+        -- Neu chua co target hoac target da chet -> tim target moi (u tien gan nhat)
+        if not currentTarget or not isTargetAlive(currentTarget) then
+            findNewTarget()
+        end
+        
+        -- Neu co target thi lock
+        if currentTarget then
+            aimAtTarget(currentTarget)
         end
     end
 end)
-
 local espEnabled = false
 local espObjects = {}
 local espBtn = makeButton("ESP PLAYER", 1, 2, Color3.fromRGB(50, 100, 150))
