@@ -755,7 +755,7 @@ end)
 --========================
 
 local infiniteJumpEnabled = false
-local jumpBtn = makeButton("INFINITE JUMP", 4, 1, Color3.fromRGB(100, 150, 100))
+local jumpBtn = makeButton("INFINITE JUMP", 2, 2, Color3.fromRGB(100, 150, 100))
 
 local function onJumpRequest()
     if not infiniteJumpEnabled then return end
