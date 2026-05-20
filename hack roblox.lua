@@ -458,111 +458,139 @@ player.CharacterAdded:Connect(function()
     end
 end)
 --========================
--- TELEPORT (TRÁNH ANTI CHEAT)
+-- XEM POV NGUOI KHAC (SPECTATE)
 --========================
 
-local teleportMenuBtn = makeButton("TELEPORT", 2, 1, Color3.fromRGB(150, 80, 100))
+local spectateEnabled = false
+local currentSpectateTarget = nil
+local originalCamera = nil
 
-local teleportFrame = Instance.new("Frame")
-teleportFrame.Parent = frame
-teleportFrame.Size = UDim2.new(0, 200, 0, 300)
-teleportFrame.Position = UDim2.new(1, 10, 0, 60)
-teleportFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-teleportFrame.BackgroundTransparency = 0.1
-teleportFrame.BorderSizePixel = 0
-teleportFrame.Visible = false
-teleportFrame.Active = true
-teleportFrame.Draggable = true
+local spectateBtn = makeButton("XEM POV", 2, 1, Color3.fromRGB(80, 150, 200))
 
-Instance.new("UICorner", teleportFrame).CornerRadius = UDim.new(0, 10)
+local spectateFrame = Instance.new("Frame")
+spectateFrame.Parent = frame
+spectateFrame.Size = UDim2.new(0, 200, 0, 300)
+spectateFrame.Position = UDim2.new(1, 10, 0, 60)
+spectateFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+spectateFrame.BackgroundTransparency = 0.1
+spectateFrame.BorderSizePixel = 0
+spectateFrame.Visible = false
+spectateFrame.Active = true
+spectateFrame.Draggable = true
 
-local tpTitle = Instance.new("TextLabel")
-tpTitle.Parent = teleportFrame
-tpTitle.Size = UDim2.new(1, 0, 0, 30)
-tpTitle.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-tpTitle.Text = "CHON NGUOI TELEPORT"
-tpTitle.TextColor3 = Color3.new(1, 1, 1)
-tpTitle.Font = Enum.Font.GothamBold
-tpTitle.TextSize = 12
+Instance.new("UICorner", spectateFrame).CornerRadius = UDim.new(0, 10)
 
-local tpPlayerList = Instance.new("ScrollingFrame")
-tpPlayerList.Parent = teleportFrame
-tpPlayerList.Size = UDim2.new(1, -10, 1, -40)
-tpPlayerList.Position = UDim2.new(0, 5, 0, 35)
-tpPlayerList.BackgroundTransparency = 1
-tpPlayerList.CanvasSize = UDim2.new(0, 0, 0, 0)
-tpPlayerList.ScrollBarThickness = 5
+local specTitle = Instance.new("TextLabel")
+specTitle.Parent = spectateFrame
+specTitle.Size = UDim2.new(1, 0, 0, 30)
+specTitle.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+specTitle.Text = "CHON NGUOI XEM POV"
+specTitle.TextColor3 = Color3.new(1, 1, 1)
+specTitle.Font = Enum.Font.GothamBold
+specTitle.TextSize = 12
 
-local tpListLayout = Instance.new("UIListLayout")
-tpListLayout.Parent = tpPlayerList
-tpListLayout.SortOrder = Enum.SortOrder.Name
-tpListLayout.Padding = UDim.new(0, 5)
+local specPlayerList = Instance.new("ScrollingFrame")
+specPlayerList.Parent = spectateFrame
+specPlayerList.Size = UDim2.new(1, -10, 1, -40)
+specPlayerList.Position = UDim2.new(0, 5, 0, 35)
+specPlayerList.BackgroundTransparency = 1
+specPlayerList.CanvasSize = UDim2.new(0, 0, 0, 0)
+specPlayerList.ScrollBarThickness = 5
 
--- Teleport từ từ (tween) để tránh anti cheat
-local function smoothTeleport(targetPos)
-    local char = player.Character
-    if not char then return false end
-    
-    local root = char:FindFirstChild("HumanoidRootPart")
-    if not root then return false end
-    
-    local humanoid = char:FindFirstChild("Humanoid")
-    if humanoid then
-        humanoid.PlatformStand = true
-    end
-    
-    local startPos = root.Position
-    local distance = (startPos - targetPos).Magnitude
-    local duration = math.min(0.3, distance / 200)  -- Toi da 0.3 giay
-    
-    local tweenInfo = TweenInfo.new(
-        duration,
-        Enum.EasingStyle.Linear,
-        Enum.EasingDirection.Out
-    )
-    
-    local tween = TweenService:Create(root, tweenInfo, {CFrame = CFrame.new(targetPos)})
-    tween:Play()
-    
-    tween.Completed:Wait()
-    
-    if humanoid then
-        humanoid.PlatformStand = false
-    end
-    
-    return true
+local specListLayout = Instance.new("UIListLayout")
+specListLayout.Parent = specPlayerList
+specListLayout.SortOrder = Enum.SortOrder.Name
+specListLayout.Padding = UDim.new(0, 5)
+
+-- Luu lai camera goc de quay lai
+local function saveOriginalCamera()
+    originalCamera = workspace.CurrentCamera.CFrame
 end
 
--- Teleport an toan (keo nguoi choi)
-local function safeTeleport(targetPlayer)
+-- Quay ve camera cua nhan vat minh
+local function returnToOwnCamera()
+    if not originalCamera then return end
+    
+    local myChar = player.Character
+    if myChar and myChar:FindFirstChild("Humanoid") then
+        workspace.CurrentCamera.CameraSubject = myChar.Humanoid
+    end
+    workspace.CurrentCamera.CFrame = originalCamera
+end
+
+-- Xem POV cua nguoi khac
+local function spectatePlayer(targetPlayer)
     if not targetPlayer or not targetPlayer.Character then
         status.Text = "STATUS : KHONG TIM THAY NGUOI CHOI"
         return false
     end
     
-    local targetRoot = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not targetRoot then
-        status.Text = "STATUS : KHONG THE TELEPORT"
+    local targetChar = targetPlayer.Character
+    local targetHead = targetChar:FindFirstChild("Head")
+    local targetHumanoid = targetChar:FindFirstChild("Humanoid")
+    
+    if not targetHead or not targetHumanoid then
+        status.Text = "STATUS : KHONG THE XEM POV"
         return false
     end
     
-    local targetPos = targetRoot.Position + Vector3.new(0, 3, 0)
+    -- Luu camera hien tai neu chua co
+    if not spectateEnabled then
+        saveOriginalCamera()
+    end
     
-    -- Method 1: Tween tu tu
-    local success = smoothTeleport(targetPos)
+    -- Chuyen camera den nguoi duoc chon
+    workspace.CurrentCamera.CameraSubject = targetHumanoid
+    workspace.CurrentCamera.CFrame = targetHead.CFrame
     
-    if success then
-        status.Text = "STATUS : DA TELEPORT TO " .. targetPlayer.Name
-        teleportFrame.Visible = false
-        return true
-    else
-        status.Text = "STATUS : TELEPORT THAT BAI"
-        return false
+    currentSpectateTarget = targetPlayer
+    spectateEnabled = true
+    spectateBtn.Text = "XEM POV [ON]"
+    spectateBtn.BackgroundColor3 = Color3.fromRGB(100, 170, 220)
+    status.Text = "STATUS : DANG XEM POV " .. targetPlayer.Name
+    spectateFrame.Visible = false
+    
+    return true
+end
+
+-- Dung xem POV
+local function stopSpectate()
+    if spectateEnabled then
+        returnToOwnCamera()
+        spectateEnabled = false
+        currentSpectateTarget = nil
+        spectateBtn.Text = "XEM POV"
+        spectateBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+        status.Text = "STATUS : READY"
     end
 end
 
-local function updateTeleportList()
-    for _, child in pairs(tpPlayerList:GetChildren()) do
+-- Cap nhat camera khi dang spectate (theo doi nguoi do di chuyen)
+RunService.RenderStepped:Connect(function()
+    if spectateEnabled and currentSpectateTarget then
+        local targetChar = currentSpectateTarget.Character
+        if targetChar and targetChar:FindFirstChild("Head") then
+            local targetHead = targetChar.Head
+            local targetHumanoid = targetChar:FindFirstChild("Humanoid")
+            
+            if targetHumanoid and targetHumanoid.Health > 0 then
+                workspace.CurrentCamera.CameraSubject = targetHumanoid
+                workspace.CurrentCamera.CFrame = targetHead.CFrame
+            else
+                -- Neu nguoi do chet, tu dong dung xem
+                stopSpectate()
+                status.Text = "STATUS : NGUOI CHOI DA CHET"
+            end
+        else
+            stopSpectate()
+            status.Text = "STATUS : MAT KET NOI"
+        end
+    end
+end)
+
+-- Tao danh sach nguoi choi
+local function updateSpectateList()
+    for _, child in pairs(specPlayerList:GetChildren()) do
         if child:IsA("TextButton") then child:Destroy() end
     end
     
@@ -577,30 +605,43 @@ local function updateTeleportList()
             btn.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
             btn.TextColor3 = Color3.new(1, 1, 1)
             btn.BorderSizePixel = 0
-            btn.Parent = tpPlayerList
+            btn.Parent = specPlayerList
             Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
             
             btn.MouseButton1Click:Connect(function()
-                safeTeleport(other)
+                spectatePlayer(other)
             end)
             
             ySize = ySize + 40
         end
     end
-    tpPlayerList.CanvasSize = UDim2.new(0, 0, 0, ySize)
+    specPlayerList.CanvasSize = UDim2.new(0, 0, 0, ySize)
 end
 
-teleportMenuBtn.MouseButton1Click:Connect(function()
-    teleportFrame.Visible = not teleportFrame.Visible
-    if teleportFrame.Visible then
-        updateTeleportList()
+-- Nut mo menu xem POV
+spectateBtn.MouseButton1Click:Connect(function()
+    if spectateEnabled then
+        stopSpectate()
+    else
+        spectateFrame.Visible = not spectateFrame.Visible
+        if spectateFrame.Visible then
+            updateSpectateList()
+        end
     end
 end)
 
+-- Dong menu khi chon xong
 Players.PlayerAdded:Connect(function()
-    if teleportFrame.Visible then updateTeleportList() end
+    if spectateFrame.Visible then updateSpectateList() end
 end)
 
 Players.PlayerRemoving:Connect(function()
-    if teleportFrame.Visible then updateTeleportList() end
+    if spectateFrame.Visible then updateSpectateList() end
+end)
+
+-- Khi nhan vat cua minh respawn, tu dong dung spectate
+player.CharacterAdded:Connect(function()
+    if spectateEnabled then
+        stopSpectate()
+    end
 end)
