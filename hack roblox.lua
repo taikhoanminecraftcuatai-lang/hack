@@ -807,3 +807,207 @@ player.CharacterAdded:Connect(function()
         -- Dam bao van tiep tuc hoat dong
     end
 end)
+--========================
+-- FLY (CO CHINH TOC DO)
+--========================
+
+local flyEnabled = false
+local flySpeed = 50
+local flyBodyVel = nil
+local flyBodyGyro = nil
+
+local flyBtn = makeButton("FLY", 3, 1, Color3.fromRGB(80, 80, 200))
+local speedSlider = nil
+local speedValue = nil
+
+-- Tao thanh truot chinh toc do
+local sliderFrame = Instance.new("Frame")
+sliderFrame.Parent = buttonContainer
+sliderFrame.Size = UDim2.new(0, 250, 0, 40)
+sliderFrame.Position = UDim2.new(0, 10, 0, 145)
+sliderFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+sliderFrame.BackgroundTransparency = 0.2
+sliderFrame.Visible = false
+sliderFrame.BorderSizePixel = 0
+
+local sliderCorner = Instance.new("UICorner")
+sliderCorner.CornerRadius = UDim.new(0, 8)
+sliderCorner.Parent = sliderFrame
+
+local sliderLabel = Instance.new("TextLabel")
+sliderLabel.Size = UDim2.new(0, 60, 1, 0)
+sliderLabel.Position = UDim2.new(0, 5, 0, 0)
+sliderLabel.BackgroundTransparency = 1
+sliderLabel.Text = "SPEED:"
+sliderLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+sliderLabel.Font = Enum.Font.GothamBold
+sliderLabel.TextSize = 12
+sliderLabel.Parent = sliderFrame
+
+local sliderBar = Instance.new("Frame")
+sliderBar.Size = UDim2.new(0, 120, 0, 8)
+sliderBar.Position = UDim2.new(0, 70, 0.5, -4)
+sliderBar.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+sliderBar.BorderSizePixel = 0
+sliderBar.Parent = sliderFrame
+
+local sliderFill = Instance.new("Frame")
+sliderFill.Size = UDim2.new(0.5, 0, 1, 0)
+sliderFill.BackgroundColor3 = Color3.fromRGB(0, 150, 200)
+sliderFill.BorderSizePixel = 0
+sliderFill.Parent = sliderBar
+
+local sliderButton = Instance.new("TextButton")
+sliderButton.Size = UDim2.new(0, 12, 0, 12)
+sliderButton.Position = UDim2.new(0.5, -6, 0.5, -6)
+sliderButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+sliderButton.Text = ""
+sliderButton.BorderSizePixel = 0
+sliderButton.Parent = sliderBar
+
+local speedValueLabel = Instance.new("TextLabel")
+speedValueLabel.Size = UDim2.new(0, 40, 1, 0)
+speedValueLabel.Position = UDim2.new(1, -45, 0, 0)
+speedValueLabel.BackgroundTransparency = 1
+speedValueLabel.Text = "50"
+speedValueLabel.TextColor3 = Color3.fromRGB(0, 150, 200)
+speedValueLabel.Font = Enum.Font.GothamBold
+speedValueLabel.TextSize = 12
+speedValueLabel.Parent = sliderFrame
+
+-- Xu ly keo thanh truot
+local dragging = false
+local function updateSpeed(input)
+    local pos = input.Position.X - sliderBar.AbsolutePosition.X
+    local percent = math.clamp(pos / sliderBar.AbsoluteBounds.Size.X, 0, 1)
+    flySpeed = math.floor(percent * 200 + 10)
+    sliderFill.Size = UDim2.new(percent, 0, 1, 0)
+    sliderButton.Position = UDim2.new(percent, -6, 0.5, -6)
+    speedValueLabel.Text = tostring(flySpeed)
+end
+
+sliderButton.MouseButton1Down:Connect(function()
+    dragging = true
+end)
+
+game:GetService("UserInputService").InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        updateSpeed(input)
+    end
+end)
+
+game:GetService("UserInputService").InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = false
+    end
+end)
+
+-- Bat/tat Fly
+local function startFly()
+    local char = player.Character
+    if not char then return end
+    
+    local hum = char:FindFirstChild("Humanoid")
+    local root = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("UpperTorso")
+    
+    if not hum or not root then return end
+    
+    if flyBodyVel then flyBodyVel:Destroy() end
+    if flyBodyGyro then flyBodyGyro:Destroy() end
+    
+    flyBodyVel = Instance.new("BodyVelocity")
+    flyBodyVel.MaxForce = Vector3.new(1,1,1) * math.huge
+    flyBodyVel.Velocity = Vector3.new(0,0,0)
+    flyBodyVel.Parent = root
+    
+    flyBodyGyro = Instance.new("BodyGyro")
+    flyBodyGyro.MaxTorque = Vector3.new(1,1,1) * math.huge
+    flyBodyGyro.Parent = root
+    
+    hum.PlatformStand = true
+    
+    while flyEnabled and root and root.Parent do
+        local cam = workspace.CurrentCamera
+        local moveDir = Vector3.new()
+        
+        if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.W) then
+            moveDir = moveDir + cam.CFrame.LookVector
+        end
+        if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.S) then
+            moveDir = moveDir - cam.CFrame.LookVector
+        end
+        if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.A) then
+            moveDir = moveDir - cam.CFrame.RightVector
+        end
+        if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.D) then
+            moveDir = moveDir + cam.CFrame.RightVector
+        end
+        if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.Space) then
+            moveDir = moveDir + Vector3.new(0, 1, 0)
+        end
+        if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.LeftControl) then
+            moveDir = moveDir - Vector3.new(0, 1, 0)
+        end
+        
+        if moveDir.Magnitude > 0 then
+            moveDir = moveDir.Unit
+        end
+        
+        flyBodyVel.Velocity = moveDir * flySpeed
+        flyBodyGyro.CFrame = cam.CFrame
+        
+        task.wait()
+    end
+end
+
+local flyCoroutine = nil
+
+local function toggleFly()
+    flyEnabled = not flyEnabled
+    
+    if flyEnabled then
+        flyBtn.Text = "FLY [ON]"
+        flyBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 220)
+        sliderFrame.Visible = true
+        status.Text = "STATUS : FLY ON (SPEED: " .. flySpeed .. ")"
+        
+        if flyCoroutine then coroutine.close(flyCoroutine) end
+        flyCoroutine = coroutine.create(function()
+            while flyEnabled do
+                if player.Character then
+                    startFly()
+                end
+                task.wait(0.5)
+            end
+        end)
+        coroutine.resume(flyCoroutine)
+    else
+        flyBtn.Text = "FLY"
+        flyBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+        sliderFrame.Visible = false
+        status.Text = "STATUS : READY"
+        
+        if flyBodyVel then flyBodyVel:Destroy() flyBodyVel = nil end
+        if flyBodyGyro then flyBodyGyro:Destroy() flyBodyGyro = nil end
+        
+        local char = player.Character
+        if char then
+            local hum = char:FindFirstChild("Humanoid")
+            if hum then hum.PlatformStand = false end
+        end
+    end
+end
+
+flyBtn.MouseButton1Click:Connect(toggleFly)
+
+player.CharacterAdded:Connect(function()
+    if flyEnabled then
+        task.wait(0.5)
+        if flyCoroutine then coroutine.close(flyCoroutine) end
+        flyCoroutine = coroutine.create(function()
+            startFly()
+        end)
+        coroutine.resume(flyCoroutine)
+    end
+end)
+
