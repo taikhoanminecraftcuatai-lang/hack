@@ -457,51 +457,113 @@ player.CharacterAdded:Connect(function()
         createAllESP()
     end
 end)
-local swapMenuBtn = makeButton("teleport", 2, 1, Color3.fromRGB(150, 80, 100))
+--========================
+-- TELEPORT (TRÁNH ANTI CHEAT)
+--========================
 
-local swapFrame = Instance.new("Frame")
-swapFrame.Parent = frame
-swapFrame.Size = UDim2.new(0, 200, 0, 300)
-swapFrame.Position = UDim2.new(1, 10, 0, 60)
-swapFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-swapFrame.BackgroundTransparency = 0.1
-swapFrame.BorderSizePixel = 0
-swapFrame.Visible = false
-swapFrame.Active = true
-swapFrame.Draggable = true
+local teleportMenuBtn = makeButton("TELEPORT", 2, 1, Color3.fromRGB(150, 80, 100))
 
-local swapCorner = Instance.new("UICorner")
-swapCorner.CornerRadius = UDim.new(0, 10)
-swapCorner.Parent = swapFrame
+local teleportFrame = Instance.new("Frame")
+teleportFrame.Parent = frame
+teleportFrame.Size = UDim2.new(0, 200, 0, 300)
+teleportFrame.Position = UDim2.new(1, 10, 0, 60)
+teleportFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+teleportFrame.BackgroundTransparency = 0.1
+teleportFrame.BorderSizePixel = 0
+teleportFrame.Visible = false
+teleportFrame.Active = true
+teleportFrame.Draggable = true
 
-local swapTitle = Instance.new("TextLabel")
-swapTitle.Parent = swapFrame
-swapTitle.Size = UDim2.new(1, 0, 0, 30)
-swapTitle.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-swapTitle.Text = "CHON NGUOI TELEPORT"
-swapTitle.TextColor3 = Color3.new(1, 1, 1)
-swapTitle.Font = Enum.Font.GothamBold
-swapTitle.TextSize = 12
-swapTitle.Parent = swapFrame
+Instance.new("UICorner", teleportFrame).CornerRadius = UDim.new(0, 10)
 
-local playerList = Instance.new("ScrollingFrame")
-playerList.Parent = swapFrame
-playerList.Size = UDim2.new(1, -10, 1, -40)
-playerList.Position = UDim2.new(0, 5, 0, 35)
-playerList.BackgroundTransparency = 1
-playerList.CanvasSize = UDim2.new(0, 0, 0, 0)
-playerList.ScrollBarThickness = 5
+local tpTitle = Instance.new("TextLabel")
+tpTitle.Parent = teleportFrame
+tpTitle.Size = UDim2.new(1, 0, 0, 30)
+tpTitle.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+tpTitle.Text = "CHON NGUOI TELEPORT"
+tpTitle.TextColor3 = Color3.new(1, 1, 1)
+tpTitle.Font = Enum.Font.GothamBold
+tpTitle.TextSize = 12
 
-local listLayout = Instance.new("UIListLayout")
-listLayout.Parent = playerList
-listLayout.SortOrder = Enum.SortOrder.Name
-listLayout.Padding = UDim.new(0, 5)
+local tpPlayerList = Instance.new("ScrollingFrame")
+tpPlayerList.Parent = teleportFrame
+tpPlayerList.Size = UDim2.new(1, -10, 1, -40)
+tpPlayerList.Position = UDim2.new(0, 5, 0, 35)
+tpPlayerList.BackgroundTransparency = 1
+tpPlayerList.CanvasSize = UDim2.new(0, 0, 0, 0)
+tpPlayerList.ScrollBarThickness = 5
 
-local function updatePlayerListUI()
-    for _, child in pairs(playerList:GetChildren()) do
-        if child:IsA("TextButton") then
-            child:Destroy()
-        end
+local tpListLayout = Instance.new("UIListLayout")
+tpListLayout.Parent = tpPlayerList
+tpListLayout.SortOrder = Enum.SortOrder.Name
+tpListLayout.Padding = UDim.new(0, 5)
+
+-- Teleport từ từ (tween) để tránh anti cheat
+local function smoothTeleport(targetPos)
+    local char = player.Character
+    if not char then return false end
+    
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return false end
+    
+    local humanoid = char:FindFirstChild("Humanoid")
+    if humanoid then
+        humanoid.PlatformStand = true
+    end
+    
+    local startPos = root.Position
+    local distance = (startPos - targetPos).Magnitude
+    local duration = math.min(0.3, distance / 200)  -- Toi da 0.3 giay
+    
+    local tweenInfo = TweenInfo.new(
+        duration,
+        Enum.EasingStyle.Linear,
+        Enum.EasingDirection.Out
+    )
+    
+    local tween = TweenService:Create(root, tweenInfo, {CFrame = CFrame.new(targetPos)})
+    tween:Play()
+    
+    tween.Completed:Wait()
+    
+    if humanoid then
+        humanoid.PlatformStand = false
+    end
+    
+    return true
+end
+
+-- Teleport an toan (keo nguoi choi)
+local function safeTeleport(targetPlayer)
+    if not targetPlayer or not targetPlayer.Character then
+        status.Text = "STATUS : KHONG TIM THAY NGUOI CHOI"
+        return false
+    end
+    
+    local targetRoot = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not targetRoot then
+        status.Text = "STATUS : KHONG THE TELEPORT"
+        return false
+    end
+    
+    local targetPos = targetRoot.Position + Vector3.new(0, 3, 0)
+    
+    -- Method 1: Tween tu tu
+    local success = smoothTeleport(targetPos)
+    
+    if success then
+        status.Text = "STATUS : DA TELEPORT TO " .. targetPlayer.Name
+        teleportFrame.Visible = false
+        return true
+    else
+        status.Text = "STATUS : TELEPORT THAT BAI"
+        return false
+    end
+end
+
+local function updateTeleportList()
+    for _, child in pairs(tpPlayerList:GetChildren()) do
+        if child:IsA("TextButton") then child:Destroy() end
     end
     
     local ySize = 0
@@ -515,53 +577,30 @@ local function updatePlayerListUI()
             btn.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
             btn.TextColor3 = Color3.new(1, 1, 1)
             btn.BorderSizePixel = 0
-            btn.Parent = playerList
-            
-            local btnCorner = Instance.new("UICorner")
-            btnCorner.CornerRadius = UDim.new(0, 6)
-            btnCorner.Parent = btn
+            btn.Parent = tpPlayerList
+            Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
             
             btn.MouseButton1Click:Connect(function()
-                local myChar = player.Character
-                local targetChar = other.Character
-                local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-                local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
-                
-                if myRoot and targetRoot then
-                    local myPos = myRoot.CFrame
-                    local targetPos = targetRoot.CFrame
-                    
-                    myRoot.CFrame = targetPos + Vector3.new(0, 3, 0)
-                    targetRoot.CFrame = myPos + Vector3.new(0, 3, 0)
-                    
-                    status.Text = "STATUS : DA TELEPORT DEN " .. other.Name
-                    swapFrame.Visible = false
-                else
-                    status.Text = "STATUS : KHONG THE TELEPORT"
-                end
+                safeTeleport(other)
             end)
             
             ySize = ySize + 40
         end
     end
-    playerList.CanvasSize = UDim2.new(0, 0, 0, ySize)
+    tpPlayerList.CanvasSize = UDim2.new(0, 0, 0, ySize)
 end
 
-swapMenuBtn.MouseButton1Click:Connect(function()
-    swapFrame.Visible = not swapFrame.Visible
-    if swapFrame.Visible then
-        updatePlayerListUI()
+teleportMenuBtn.MouseButton1Click:Connect(function()
+    teleportFrame.Visible = not teleportFrame.Visible
+    if teleportFrame.Visible then
+        updateTeleportList()
     end
 end)
 
 Players.PlayerAdded:Connect(function()
-    if swapFrame.Visible then
-        updatePlayerListUI()
-    end
+    if teleportFrame.Visible then updateTeleportList() end
 end)
 
 Players.PlayerRemoving:Connect(function()
-    if swapFrame.Visible then
-        updatePlayerListUI()
-    end
+    if teleportFrame.Visible then updateTeleportList() end
 end)
