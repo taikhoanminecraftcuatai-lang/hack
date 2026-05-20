@@ -484,7 +484,7 @@ local function updatePlayerListUI()
                     myRoot.CFrame = targetPos + Vector3.new(0, 3, 0)
                     targetRoot.CFrame = myPos + Vector3.new(0, 3, 0)
                     
-                    status.Text = "STATUS : DA DOI TELEPORT DEN " .. other.Name
+                    status.Text = "STATUS : DA TELEPORT DEN " .. other.Name
                     swapFrame.Visible = false
                 else
                     status.Text = "STATUS : KHONG THE TELEPORT"
@@ -515,91 +515,3 @@ Players.PlayerRemoving:Connect(function()
         updatePlayerListUI()
     end
 end)
---========================
--- HUT DO VAT (BRING ITEMS)
---========================
-
-local bringEnabled = false
-local bringRadius = 50
-local bringList = {}
-
-local bringBtn = makeButton("BRING ITEMS", 3, 1, Color3.fromRGB(100, 80, 150))
-
-local function isItemObject(obj)
-    -- Bo qua nguoi choi
-    for _, p in pairs(Players:GetPlayers()) do
-        if obj:IsDescendantOf(p.Character) then
-            return false
-        end
-    end
-    
-    -- Bo qua ban than minh
-    if obj:IsDescendantOf(player.Character) then
-        return false
-    end
-    
-    -- Bo qua terrain va part co ban
-    if obj.Name == "Terrain" then return false end
-    local generic = {"Part", "CylinderPart", "WedgePart", "MeshPart", "Union"}
-    for _, name in pairs(generic) do
-        if obj.Name == name then return false end
-    end
-    
-    return obj:IsA("BasePart") or obj:IsA("Tool")
-end
-
-local function bringItems()
-    local char = player.Character
-    if not char then return end
-    
-    local root = char:FindFirstChild("HumanoidRootPart")
-    if not root then return end
-    
-    local myPos = root.Position
-    
-    for _, obj in pairs(workspace:GetDescendants()) do
-        if isItemObject(obj) then
-            local objPos = obj:IsA("BasePart") and obj.Position or (obj:FindFirstChild("Handle") and obj.Handle.Position)
-            if objPos then
-                local dist = (myPos - objPos).Magnitude
-                if dist <= bringRadius then
-                    -- Keo vat pham ve phia nguoi choi
-                    local bodyVel = Instance.new("BodyVelocity")
-                    bodyVel.MaxForce = Vector3.new(1,1,1) * math.huge
-                    bodyVel.Velocity = (myPos - objPos).Unit * 50
-                    bodyVel.Parent = obj
-                    
-                    task.wait(0.05)
-                    bodyVel:Destroy()
-                end
-            end
-        end
-    end
-end
-
-local bringLoop = nil
-
-local function toggleBring()
-    bringEnabled = not bringEnabled
-    
-    if bringEnabled then
-        bringBtn.Text = "BRING ITEMS ON"
-        bringBtn.BackgroundColor3 = Color3.fromRGB(130, 100, 180)
-        status.Text = "STATUS : BRING ITEMS ON"
-        
-        if bringLoop then bringLoop:Disconnect() end
-        bringLoop = RunService.RenderStepped:Connect(function()
-            if bringEnabled then
-                bringItems()
-            end
-        end)
-    else
-        bringBtn.Text = "BRING ITEMS"
-        bringBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
-        status.Text = "STATUS : READY"
-        
-        if bringLoop then bringLoop:Disconnect() bringLoop = nil end
-    end
-end
-
-bringBtn.MouseButton1Click:Connect(toggleBring)
