@@ -301,105 +301,193 @@ RunService.RenderStepped:Connect(function()
         end
     end
 end)
+--========================
+-- ESP PLAYER (CHUYEN NGHIEP, KHONG ICON)
+--========================
+
 local espEnabled = false
 local espObjects = {}
+
 local espBtn = makeButton("ESP PLAYER", 1, 2, Color3.fromRGB(50, 100, 150))
 
-local function createBox(targetPlayer)
+local function getHealthColor(health, maxHealth)
+    local percent = health / maxHealth
+    if percent > 0.7 then
+        return Color3.fromRGB(0, 255, 0)
+    elseif percent > 0.3 then
+        return Color3.fromRGB(255, 255, 0)
+    else
+        return Color3.fromRGB(255, 0, 0)
+    end
+end
+
+local function createESP(targetPlayer)
     if espObjects[targetPlayer] then
-        if espObjects[targetPlayer].billboard then espObjects[targetPlayer].billboard:Destroy() end
-        if espObjects[targetPlayer].box then espObjects[targetPlayer].box:Destroy() end
-        if espObjects[targetPlayer].line then espObjects[targetPlayer].line:Destroy() end
-        espObjects[targetPlayer] = nil
+        destroyESP(targetPlayer)
     end
     
     local char = targetPlayer.Character
     if not char then return end
     
     local root = char:FindFirstChild("HumanoidRootPart")
-    if not root then return end
-    
     local head = char:FindFirstChild("Head")
-    if not head then return end
+    local hum = char:FindFirstChild("Humanoid")
+    
+    if not root or not head or not hum then return end
     
     local billboard = Instance.new("BillboardGui")
-    billboard.Size = UDim2.new(0, 200, 0, 50)
-    billboard.StudsOffset = Vector3.new(0, 2.5, 0)
+    billboard.Name = "ESP_Billboard"
+    billboard.Size = UDim2.new(0, 180, 0, 55)
+    billboard.StudsOffset = Vector3.new(0, 2.8, 0)
     billboard.AlwaysOnTop = true
     billboard.Parent = head
     
     local nameLabel = Instance.new("TextLabel")
-    nameLabel.Size = UDim2.new(1, 0, 0.5, 0)
+    nameLabel.Size = UDim2.new(1, 0, 0, 20)
+    nameLabel.Position = UDim2.new(0, 0, 0, 0)
     nameLabel.BackgroundTransparency = 1
     nameLabel.Text = targetPlayer.Name
-    nameLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+    nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     nameLabel.TextStrokeTransparency = 0.3
     nameLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
     nameLabel.Font = Enum.Font.GothamBold
     nameLabel.TextSize = 14
     nameLabel.Parent = billboard
     
+    local healthBarBg = Instance.new("Frame")
+    healthBarBg.Size = UDim2.new(0.9, 0, 0, 6)
+    healthBarBg.Position = UDim2.new(0.05, 0, 0.4, 0)
+    healthBarBg.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    healthBarBg.BorderSizePixel = 0
+    healthBarBg.Parent = billboard
+    
+    local healthBar = Instance.new("Frame")
+    healthBar.Size = UDim2.new(1, 0, 1, 0)
+    healthBar.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+    healthBar.BorderSizePixel = 0
+    healthBar.Parent = healthBarBg
+    
+    local healthText = Instance.new("TextLabel")
+    healthText.Size = UDim2.new(1, 0, 0, 15)
+    healthText.Position = UDim2.new(0, 0, 0.55, 0)
+    healthText.BackgroundTransparency = 1
+    healthText.Text = ""
+    healthText.TextColor3 = Color3.fromRGB(255, 255, 255)
+    healthText.Font = Enum.Font.Gotham
+    healthText.TextSize = 11
+    healthText.Parent = billboard
+    
     local distLabel = Instance.new("TextLabel")
-    distLabel.Size = UDim2.new(1, 0, 0.5, 0)
-    distLabel.Position = UDim2.new(0, 0, 0.5, 0)
+    distLabel.Size = UDim2.new(1, 0, 0, 15)
+    distLabel.Position = UDim2.new(0, 0, 0.75, 0)
     distLabel.BackgroundTransparency = 1
     distLabel.Text = ""
-    distLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    distLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
     distLabel.Font = Enum.Font.Gotham
-    distLabel.TextSize = 11
+    distLabel.TextSize = 10
     distLabel.Parent = billboard
     
     local boxOutline = Instance.new("SelectionBox")
     boxOutline.Adornee = root
     boxOutline.Color3 = Color3.fromRGB(255, 0, 0)
-    boxOutline.LineThickness = 0.05
-    boxOutline.Transparency = 0.5
+    boxOutline.LineThickness = 0.08
+    boxOutline.Transparency = 0.4
     boxOutline.Parent = char
+    
+    local line = Instance.new("SelectionPartLasso")
+    line.Name = "ESP_Line"
+    line.Humanoid = hum
+    line.Part = root
+    line.Color3 = Color3.fromRGB(255, 255, 255)
+    line.Transparency = 0.3
+    line.Visible = true
+    line.Parent = char
     
     espObjects[targetPlayer] = {
         billboard = billboard,
         box = boxOutline,
+        line = line,
         nameLabel = nameLabel,
-        distLabel = distLabel
+        healthBar = healthBar,
+        healthText = healthText,
+        distLabel = distLabel,
+        humanoid = hum,
+        root = root
     }
+    
+    return true
 end
 
 local function updateESP()
     local myChar = player.Character
     local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
     
-    for _, other in pairs(Players:GetPlayers()) do
-        if other ~= player and espObjects[other] then
-            local otherChar = other.Character
-            local dist = ""
-            local color = Color3.fromRGB(255, 0, 0)
+    for other, data in pairs(espObjects) do
+        if other and data and data.humanoid and data.root then
+            local health = data.humanoid.Health
+            local maxHealth = data.humanoid.MaxHealth
+            local healthPercent = health / maxHealth
             
-            if myRoot and otherChar and otherChar:FindFirstChild("HumanoidRootPart") then
-                local distance = (myRoot.Position - otherChar.HumanoidRootPart.Position).Magnitude
-                dist = string.format("%.1f m", distance)
-                if distance < 30 then
-                    color = Color3.fromRGB(255, 50, 50)
-                elseif distance < 70 then
-                    color = Color3.fromRGB(255, 150, 50)
-                else
-                    color = Color3.fromRGB(255, 255, 100)
+            if data.healthBar then
+                data.healthBar.Size = UDim2.new(healthPercent, 0, 1, 0)
+                data.healthBar.BackgroundColor3 = getHealthColor(health, maxHealth)
+            end
+            
+            if data.healthText then
+                data.healthText.Text = string.format("%.0f / %.0f", health, maxHealth)
+                data.healthText.TextColor3 = getHealthColor(health, maxHealth)
+            end
+            
+            if myRoot and data.root then
+                local dist = (myRoot.Position - data.root.Position).Magnitude
+                if data.distLabel then
+                    data.distLabel.Text = string.format("%.1f m", dist)
+                end
+                
+                local isVisible = dist <= 200
+                if data.billboard then data.billboard.Enabled = isVisible end
+                if data.box then data.box.Visible = isVisible end
+                if data.line then data.line.Visible = isVisible end
+                
+                if data.box then
+                    if dist < 50 then
+                        data.box.Color3 = Color3.fromRGB(255, 50, 50)
+                    elseif dist < 100 then
+                        data.box.Color3 = Color3.fromRGB(255, 200, 50)
+                    else
+                        data.box.Color3 = Color3.fromRGB(255, 255, 255)
+                    end
+                end
+                
+                if data.line then
+                    if dist < 50 then
+                        data.line.Color3 = Color3.fromRGB(255, 50, 50)
+                    elseif dist < 100 then
+                        data.line.Color3 = Color3.fromRGB(255, 200, 50)
+                    else
+                        data.line.Color3 = Color3.fromRGB(255, 255, 255)
+                    end
                 end
             end
-            
-            local data = espObjects[other]
-            if data then
-                if data.nameLabel then data.nameLabel.TextColor3 = color end
-                if data.distLabel then data.distLabel.Text = dist end
-                if data.box then data.box.Color3 = color end
-            end
+        else
+            destroyESP(other)
         end
     end
 end
 
-local function destroyAllESP()
-    for target, data in pairs(espObjects) do
+local function destroyESP(target)
+    local data = espObjects[target]
+    if data then
         if data.billboard then data.billboard:Destroy() end
         if data.box then data.box:Destroy() end
+        if data.line then data.line:Destroy() end
+        espObjects[target] = nil
+    end
+end
+
+local function destroyAllESP()
+    for target, _ in pairs(espObjects) do
+        destroyESP(target)
     end
     espObjects = {}
 end
@@ -408,34 +496,14 @@ local function createAllESP()
     destroyAllESP()
     for _, other in pairs(Players:GetPlayers()) do
         if other ~= player then
-            createBox(other)
+            createESP(other)
         end
     end
 end
 
-Players.PlayerAdded:Connect(function(newPlayer)
-    if espEnabled then
-        task.wait(0.5)
-        createBox(newPlayer)
-    end
-end)
-
-Players.PlayerRemoving:Connect(function(leavingPlayer)
-    if espObjects[leavingPlayer] then
-        if espObjects[leavingPlayer].billboard then espObjects[leavingPlayer].billboard:Destroy() end
-        if espObjects[leavingPlayer].box then espObjects[leavingPlayer].box:Destroy() end
-        espObjects[leavingPlayer] = nil
-    end
-end)
-
-RunService.RenderStepped:Connect(function()
-    if espEnabled then
-        updateESP()
-    end
-end)
-
 local function toggleESP()
     espEnabled = not espEnabled
+    
     if espEnabled then
         createAllESP()
         espBtn.Text = "ESP PLAYER ON"
@@ -449,7 +517,41 @@ local function toggleESP()
     end
 end
 
-espBtn.MouseButton1Click:Connect(toggleESP)
+Players.PlayerAdded:Connect(function(newPlayer)
+    if espEnabled then
+        task.wait(0.5)
+        createESP(newPlayer)
+    end
+end)
+
+Players.PlayerRemoving:Connect(function(leavingPlayer)
+    if espObjects[leavingPlayer] then
+        destroyESP(leavingPlayer)
+    end
+end)
+
+local function onCharacterAdded(targetPlayer)
+    if espEnabled and targetPlayer ~= player then
+        task.wait(0.5)
+        if targetPlayer.Character then
+            createESP(targetPlayer)
+        end
+    end
+end
+
+for _, other in pairs(Players:GetPlayers()) do
+    if other ~= player then
+        other.CharacterAdded:Connect(function()
+            onCharacterAdded(other)
+        end)
+    end
+end
+
+RunService.RenderStepped:Connect(function()
+    if espEnabled then
+        updateESP()
+    end
+end)
 
 player.CharacterAdded:Connect(function()
     if espEnabled then
@@ -457,7 +559,9 @@ player.CharacterAdded:Connect(function()
         createAllESP()
     end
 end)
---========================
+
+espBtn.MouseButton1Click:Connect(toggleESP)
+
 -- XEM NGUOI CHOI (GOC NHIN THU 3)
 --========================
 
