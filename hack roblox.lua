@@ -646,3 +646,180 @@ player.CharacterAdded:Connect(function()
         stopSpectate()
     end
 end)
+--========================
+-- AUTO AIM + AUTO SHOOT (NHIEU MUC TIEU)
+--========================
+
+local autoAimEnabled = false
+local autoShootEnabled = false
+local currentTargets = {}  -- Danh sach nhieu muc tieu
+local shootDelay = 0.08     -- Toc do ban (giay)
+
+local autoBtn = makeButton("AUTO AIM", 3, 1, Color3.fromRGB(200, 50, 100))
+local shootBtn = makeButton("AUTO SHOOT", 3, 2, Color3.fromRGB(200, 100, 50))
+
+-- Tim tat ca nguoi choi trong tam (lock nhieu nguoi)
+local function getAllTargetsInRange()
+    local targets = {}
+    local character = player.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then
+        return targets
+    end
+    
+    local myPos = character.HumanoidRootPart.Position
+    
+    for _, other in pairs(Players:GetPlayers()) do
+        if other ~= player then
+            local otherChar = other.Character
+            if otherChar and otherChar:FindFirstChild("HumanoidRootPart") and otherChar:FindFirstChild("Head") then
+                local hum = otherChar:FindFirstChild("Humanoid")
+                if hum and hum.Health and hum.Health > 0 then
+                    local otherPos = otherChar.HumanoidRootPart.Position
+                    local dist = (myPos - otherPos).Magnitude
+                    if dist < 200 then  -- Ban kinh lock
+                        table.insert(targets, {
+                            player = other,
+                            character = otherChar,
+                            root = otherChar.HumanoidRootPart,
+                            head = otherChar.Head,
+                            distance = dist
+                        })
+                    end
+                end
+            end
+        end
+    end
+    
+    -- Sap xep theo khoang cach (gan nhat len dau)
+    table.sort(targets, function(a, b)
+        return a.distance < b.distance
+    end)
+    
+    return targets
+end
+
+-- Lock camera vao mot muc tieu (nhin vao dau)
+local function aimAtHead(target)
+    if not target or not target.head then return end
+    
+    local myCamera = workspace.CurrentCamera
+    if not myCamera then return end
+    
+    local cameraPos = myCamera.CFrame.Position
+    local headPos = target.head.Position
+    
+    -- Lock truc tiep vao dau
+    myCamera.CFrame = CFrame.new(cameraPos, headPos)
+end
+
+-- Ham ban (mo phong click chuot hoac kick hoat remote)
+local function shoot()
+    local char = player.Character
+    if not char then return end
+    
+    -- Cach 1: Tim tool dang cam va kich hoat
+    for _, tool in pairs(char:GetChildren()) do
+        if tool:IsA("Tool") then
+            -- Kich hoat ClickEvent
+            local clickEvent = tool:FindFirstChild("ClickEvent")
+            if clickEvent and clickEvent:IsA("RemoteEvent") then
+                clickEvent:FireServer()
+            end
+            
+            -- Kich hoat RemoteEvent
+            local remote = tool:FindFirstChild("RemoteEvent")
+            if remote and remote:IsA("RemoteEvent") then
+                remote:FireServer()
+            end
+            
+            -- Kich hoat Activate
+            local activate = tool:FindFirstChild("Activate")
+            if activate and activate:IsA("BindableEvent") then
+                activate:Fire()
+            end
+        end
+    end
+    
+    -- Cach 2: Tim remote trong ReplicatedStorage
+    local rs = game:GetService("ReplicatedStorage")
+    for _, remote in pairs(rs:GetDescendants()) do
+        if remote:IsA("RemoteEvent") then
+            local name = remote.Name:lower()
+            if name:find("attack") or name:find("shoot") or name:find("fire") or name:find("click") then
+                remote:FireServer()
+            end
+        end
+    end
+end
+
+-- Vong lap chinh: lock nhieu muc tieu + ban
+local autoLoop = nil
+
+local function startAutoAim()
+    if autoLoop then return end
+    
+    autoLoop = RunService.RenderStepped:Connect(function()
+        if autoAimEnabled then
+            local targets = getAllTargetsInRange()
+            currentTargets = targets
+            
+            if #targets > 0 then
+                -- Lock vao muc tieu gan nhat (dau tien trong danh sach)
+                local primaryTarget = targets[1]
+                aimAtHead(primaryTarget)
+                
+                -- Neu bat auto shoot thi tu dong ban
+                if autoShootEnabled then
+                    shoot()
+                end
+            end
+        end
+    end)
+end
+
+-- Bat/tat Auto Aim
+autoBtn.MouseButton1Click:Connect(function()
+    autoAimEnabled = not autoAimEnabled
+    
+    if autoAimEnabled then
+        autoBtn.Text = "AUTO AIM [ON]"
+        autoBtn.BackgroundColor3 = Color3.fromRGB(220, 70, 120)
+        status.Text = "STATUS : AUTO AIM ON (LOCK NHIEU NGUOI)"
+        startAutoAim()
+    else
+        autoBtn.Text = "AUTO AIM"
+        autoBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+        status.Text = "STATUS : READY"
+        currentTargets = {}
+        
+        if autoLoop then
+            autoLoop:Disconnect()
+            autoLoop = nil
+        end
+    end
+end)
+
+-- Bat/tat Auto Shoot
+shootBtn.MouseButton1Click:Connect(function()
+    autoShootEnabled = not autoShootEnabled
+    
+    if autoShootEnabled then
+        shootBtn.Text = "AUTO SHOOT [ON]"
+        shootBtn.BackgroundColor3 = Color3.fromRGB(220, 120, 70)
+        status.Text = "STATUS : AUTO SHOOT ON"
+    else
+        shootBtn.Text = "AUTO SHOOT"
+        shootBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+        status.Text = "STATUS : READY"
+    end
+end)
+
+-- Reset khi nhan vat respawn
+player.CharacterAdded:Connect(function()
+    if autoAimEnabled then
+        if autoLoop then autoLoop:Disconnect() end
+        autoLoop = nil
+        task.wait(1)
+        startAutoAim()
+    end
+end)
