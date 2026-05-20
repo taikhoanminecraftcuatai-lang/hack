@@ -561,7 +561,7 @@ local function stopSpectate()
         returnToOwnCamera()
         spectateEnabled = false
         currentSpectateTarget = nil
-        spectateBtn.Text = "XEM NGUOI"
+        spectateBtn.Text = "POV PLAYER"
         spectateBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
         status.Text = "STATUS : READY"
     end
