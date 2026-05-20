@@ -458,14 +458,14 @@ player.CharacterAdded:Connect(function()
     end
 end)
 --========================
--- XEM POV NGUOI KHAC (SPECTATE)
+-- XEM NGUOI CHOI (GOC NHIN THU 3)
 --========================
 
 local spectateEnabled = false
 local currentSpectateTarget = nil
 local originalCamera = nil
 
-local spectateBtn = makeButton("POV", 2, 1, Color3.fromRGB(80, 150, 200))
+local spectateBtn = makeButton("POV PLAYER", 2, 1, Color3.fromRGB(80, 150, 200))
 
 local spectateFrame = Instance.new("Frame")
 spectateFrame.Parent = frame
@@ -484,7 +484,7 @@ local specTitle = Instance.new("TextLabel")
 specTitle.Parent = spectateFrame
 specTitle.Size = UDim2.new(1, 0, 0, 30)
 specTitle.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-specTitle.Text = "CHON NGUOI XEM POV"
+specTitle.Text = "CHON NGUOI XEM"
 specTitle.TextColor3 = Color3.new(1, 1, 1)
 specTitle.Font = Enum.Font.GothamBold
 specTitle.TextSize = 12
@@ -502,15 +502,14 @@ specListLayout.Parent = specPlayerList
 specListLayout.SortOrder = Enum.SortOrder.Name
 specListLayout.Padding = UDim.new(0, 5)
 
--- Luu lai camera goc de quay lai
+-- Luu camera goc
 local function saveOriginalCamera()
     originalCamera = workspace.CurrentCamera.CFrame
 end
 
--- Quay ve camera cua nhan vat minh
+-- Quay ve camera cua minh
 local function returnToOwnCamera()
     if not originalCamera then return end
-    
     local myChar = player.Character
     if myChar and myChar:FindFirstChild("Humanoid") then
         workspace.CurrentCamera.CameraSubject = myChar.Humanoid
@@ -518,7 +517,7 @@ local function returnToOwnCamera()
     workspace.CurrentCamera.CFrame = originalCamera
 end
 
--- Xem POV cua nguoi khac
+-- Xem nguoi khac (goc thu 3)
 local function spectatePlayer(targetPlayer)
     if not targetPlayer or not targetPlayer.Character then
         status.Text = "STATUS : KHONG TIM THAY NGUOI CHOI"
@@ -526,58 +525,62 @@ local function spectatePlayer(targetPlayer)
     end
     
     local targetChar = targetPlayer.Character
-    local targetHead = targetChar:FindFirstChild("Head")
+    local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
     local targetHumanoid = targetChar:FindFirstChild("Humanoid")
     
-    if not targetHead or not targetHumanoid then
-        status.Text = "STATUS : KHONG THE XEM POV"
+    if not targetRoot or not targetHumanoid then
+        status.Text = "STATUS : KHONG THE XEM"
         return false
     end
     
-    -- Luu camera hien tai neu chua co
     if not spectateEnabled then
         saveOriginalCamera()
     end
     
-    -- Chuyen camera den nguoi duoc chon
+    -- Gan camera vao nguoi do (goc thu 3)
     workspace.CurrentCamera.CameraSubject = targetHumanoid
-    workspace.CurrentCamera.CFrame = targetHead.CFrame
+    
+    -- Dat camera o vi tri xa de nhin thay toan than
+    local offset = Vector3.new(5, 3, 8)  -- X: trai/phai, Y: cao/thap, Z: xa/gan
+    local targetPos = targetRoot.Position
+    workspace.CurrentCamera.CFrame = CFrame.new(targetPos + offset, targetPos)
     
     currentSpectateTarget = targetPlayer
     spectateEnabled = true
-    spectateBtn.Text = "POV [ON]"
+    spectateBtn.Text = "POV PLAYER [ON]"
     spectateBtn.BackgroundColor3 = Color3.fromRGB(100, 170, 220)
-    status.Text = "STATUS : DANG XEM POV " .. targetPlayer.Name
+    status.Text = "STATUS : DANG XEM " .. targetPlayer.Name
     spectateFrame.Visible = false
     
     return true
 end
 
--- Dung xem POV
+-- Dung xem
 local function stopSpectate()
     if spectateEnabled then
         returnToOwnCamera()
         spectateEnabled = false
         currentSpectateTarget = nil
-        spectateBtn.Text = "POV"
+        spectateBtn.Text = "XEM NGUOI"
         spectateBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
         status.Text = "STATUS : READY"
     end
 end
 
--- Cap nhat camera khi dang spectate (theo doi nguoi do di chuyen)
+-- Cap nhat camera khi dang xem
 RunService.RenderStepped:Connect(function()
     if spectateEnabled and currentSpectateTarget then
         local targetChar = currentSpectateTarget.Character
-        if targetChar and targetChar:FindFirstChild("Head") then
-            local targetHead = targetChar.Head
+        if targetChar and targetChar:FindFirstChild("HumanoidRootPart") then
+            local targetRoot = targetChar.HumanoidRootPart
             local targetHumanoid = targetChar:FindFirstChild("Humanoid")
             
             if targetHumanoid and targetHumanoid.Health > 0 then
                 workspace.CurrentCamera.CameraSubject = targetHumanoid
-                workspace.CurrentCamera.CFrame = targetHead.CFrame
+                local offset = Vector3.new(5, 3, 8)
+                local targetPos = targetRoot.Position
+                workspace.CurrentCamera.CFrame = CFrame.new(targetPos + offset, targetPos)
             else
-                -- Neu nguoi do chet, tu dong dung xem
                 stopSpectate()
                 status.Text = "STATUS : NGUOI CHOI DA CHET"
             end
@@ -618,7 +621,7 @@ local function updateSpectateList()
     specPlayerList.CanvasSize = UDim2.new(0, 0, 0, ySize)
 end
 
--- Nut mo menu xem POV
+-- Nut mo menu
 spectateBtn.MouseButton1Click:Connect(function()
     if spectateEnabled then
         stopSpectate()
@@ -630,7 +633,6 @@ spectateBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- Dong menu khi chon xong
 Players.PlayerAdded:Connect(function()
     if spectateFrame.Visible then updateSpectateList() end
 end)
@@ -639,7 +641,6 @@ Players.PlayerRemoving:Connect(function()
     if spectateFrame.Visible then updateSpectateList() end
 end)
 
--- Khi nhan vat cua minh respawn, tu dong dung spectate
 player.CharacterAdded:Connect(function()
     if spectateEnabled then
         stopSpectate()
