@@ -465,7 +465,7 @@ local spectateEnabled = false
 local currentSpectateTarget = nil
 local originalCamera = nil
 
-local spectateBtn = makeButton("XEM POV", 2, 1, Color3.fromRGB(80, 150, 200))
+local spectateBtn = makeButton("POV", 2, 1, Color3.fromRGB(80, 150, 200))
 
 local spectateFrame = Instance.new("Frame")
 spectateFrame.Parent = frame
@@ -545,7 +545,7 @@ local function spectatePlayer(targetPlayer)
     
     currentSpectateTarget = targetPlayer
     spectateEnabled = true
-    spectateBtn.Text = "XEM POV [ON]"
+    spectateBtn.Text = "POV [ON]"
     spectateBtn.BackgroundColor3 = Color3.fromRGB(100, 170, 220)
     status.Text = "STATUS : DANG XEM POV " .. targetPlayer.Name
     spectateFrame.Visible = false
@@ -559,7 +559,7 @@ local function stopSpectate()
         returnToOwnCamera()
         spectateEnabled = false
         currentSpectateTarget = nil
-        spectateBtn.Text = "XEM POV"
+        spectateBtn.Text = "POV"
         spectateBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
         status.Text = "STATUS : READY"
     end
