@@ -750,3 +750,60 @@ player.CharacterAdded:Connect(function()
         stopSpectate()
     end
 end)
+--========================
+-- INFINITE JUMP (NHẢY VÔ HẠN)
+--========================
+
+local infiniteJumpEnabled = false
+local jumpBtn = makeButton("INFINITE JUMP", 4, 1, Color3.fromRGB(100, 150, 100))
+
+local function onJumpRequest()
+    if not infiniteJumpEnabled then return end
+    
+    local char = player.Character
+    if not char then return end
+    
+    local hum = char:FindFirstChild("Humanoid")
+    if not hum then return end
+    
+    -- Kiem tra dang o tren khong
+    if hum.FloorMaterial == Enum.Material.Air then
+        hum:ChangeState(Enum.HumanoidStateType.Jumping)
+    end
+end
+
+-- Bat/tat Infinite Jump
+local function toggleInfiniteJump()
+    infiniteJumpEnabled = not infiniteJumpEnabled
+    
+    if infiniteJumpEnabled then
+        jumpBtn.Text = "INFINITE JUMP [ON]"
+        jumpBtn.BackgroundColor3 = Color3.fromRGB(130, 180, 130)
+        status.Text = "STATUS : INFINITE JUMP ON"
+        
+        -- Ket noi su kien nhay
+        if not jumpConnection then
+            jumpConnection = game:GetService("UserInputService").JumpRequest:Connect(onJumpRequest)
+        end
+    else
+        jumpBtn.Text = "INFINITE JUMP"
+        jumpBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+        status.Text = "STATUS : READY"
+        
+        -- Ngat ket noi
+        if jumpConnection then
+            jumpConnection:Disconnect()
+            jumpConnection = nil
+        end
+    end
+end
+
+jumpBtn.MouseButton1Click:Connect(toggleInfiniteJump)
+
+-- Reset khi nhan vat respawn
+player.CharacterAdded:Connect(function()
+    if infiniteJumpEnabled then
+        task.wait(0.5)
+        -- Dam bao van tiep tuc hoat dong
+    end
+end)
