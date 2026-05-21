@@ -808,68 +808,175 @@ player.CharacterAdded:Connect(function()
     end
 end)
 --========================
--- FLY CUC KY DON GIAN (HOAT DONG 100%)
+-- FLY CHUAN (LEN/XUONG + SLIDER)
 --========================
 
 local flyEnabled = false
-local flySpeed = 60
-local bodyVelocity = nil
+local flySpeed = 50
+local bodyVel = nil
+local bodyGyro = nil
 
 local flyBtn = makeButton("FLY", 3, 1, Color3.fromRGB(80, 80, 200))
 
--- Nút tăng giảm tốc độ
-local speedBtn1 = makeButton("+", 3, 2, Color3.fromRGB(60, 60, 80))
-local speedBtn2 = makeButton("-", 4, 1, Color3.fromRGB(60, 60, 80))
+-- Tao thanh truot chon speed
+local sliderFrame = Instance.new("Frame")
+sliderFrame.Parent = buttonContainer
+sliderFrame.Size = UDim2.new(0, 220, 0, 40)
+sliderFrame.Position = UDim2.new(0, 10, 0, 145)
+sliderFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
+sliderFrame.BackgroundTransparency = 0.1
+sliderFrame.BorderSizePixel = 0
+sliderFrame.Visible = false
 
--- Chỉnh tốc độ
-speedBtn1.MouseButton1Click:Connect(function()
-    flySpeed = math.min(200, flySpeed + 10)
+local sliderCorner = Instance.new("UICorner")
+sliderCorner.CornerRadius = UDim.new(0, 10)
+sliderCorner.Parent = sliderFrame
+
+local sliderLabel = Instance.new("TextLabel")
+sliderLabel.Size = UDim2.new(0, 55, 1, 0)
+sliderLabel.Position = UDim2.new(0, 5, 0, 0)
+sliderLabel.BackgroundTransparency = 1
+sliderLabel.Text = "SPEED:"
+sliderLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+sliderLabel.Font = Enum.Font.GothamBold
+sliderLabel.TextSize = 12
+sliderLabel.Parent = sliderFrame
+
+local sliderBar = Instance.new("Frame")
+sliderBar.Size = UDim2.new(0, 110, 0, 6)
+sliderBar.Position = UDim2.new(0, 65, 0.5, -3)
+sliderBar.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+sliderBar.BorderSizePixel = 0
+sliderBar.Parent = sliderFrame
+
+local sliderFill = Instance.new("Frame")
+sliderFill.Size = UDim2.new(0.3, 0, 1, 0)
+sliderFill.BackgroundColor3 = Color3.fromRGB(0, 200, 255)
+sliderFill.BorderSizePixel = 0
+sliderFill.Parent = sliderBar
+
+local speedValueText = Instance.new("TextLabel")
+speedValueText.Size = UDim2.new(0, 35, 1, 0)
+speedValueText.Position = UDim2.new(1, -40, 0, 0)
+speedValueText.BackgroundTransparency = 1
+speedValueText.Text = "50"
+speedValueText.TextColor3 = Color3.fromRGB(0, 200, 255)
+speedValueText.Font = Enum.Font.GothamBold
+speedValueText.TextSize = 12
+speedValueText.Parent = sliderFrame
+
+-- Xu ly keo slider
+local dragSlider = false
+local function updateSpeedFromSlider(pos)
+    local barPos = sliderBar.AbsolutePosition.X
+    local barWidth = sliderBar.AbsoluteSize.X
+    local percent = math.clamp((pos - barPos) / barWidth, 0, 1)
+    flySpeed = math.floor(percent * 180 + 20)
+    sliderFill.Size = UDim2.new(percent, 0, 1, 0)
+    speedValueText.Text = tostring(flySpeed)
     status.Text = "STATUS : SPEED " .. flySpeed
+end
+
+sliderBar.MouseButton1Down:Connect(function()
+    dragSlider = true
 end)
 
-speedBtn2.MouseButton1Click:Connect(function()
-    flySpeed = math.max(20, flySpeed - 10)
-    status.Text = "STATUS : SPEED " .. flySpeed
+game:GetService("UserInputService").InputChanged:Connect(function(input)
+    if dragSlider and input.UserInputType == Enum.UserInputType.MouseMovement then
+        updateSpeedFromSlider(input.Position.X)
+    end
 end)
 
--- Hàm bật fly
-local function enableFly()
+game:GetService("UserInputService").InputEnded:Connect(function()
+    dragSlider = false
+end)
+
+-- Nhanh len/xuong bang nhan vat
+local upButton = Instance.new("TextButton")
+upButton.Parent = buttonContainer
+upButton.Size = UDim2.new(0, 60, 0, 35)
+upButton.Position = UDim2.new(0, 10, 0, 195)
+upButton.Text = "🔼 LEN"
+upButton.TextSize = 12
+upButton.Font = Enum.Font.GothamBold
+upButton.BackgroundColor3 = Color3.fromRGB(0, 150, 200)
+upButton.TextColor3 = Color3.new(1, 1, 1)
+upButton.BorderSizePixel = 0
+upButton.Visible = false
+Instance.new("UICorner", upButton).CornerRadius = UDim.new(0, 8)
+
+local downButton = Instance.new("TextButton")
+downButton.Parent = buttonContainer
+downButton.Size = UDim2.new(0, 60, 0, 35)
+downButton.Position = UDim2.new(0, 80, 0, 195)
+downButton.Text = "🔽 XUONG"
+downButton.TextSize = 12
+downButton.Font = Enum.Font.GothamBold
+downButton.BackgroundColor3 = Color3.fromRGB(200, 100, 50)
+downButton.TextColor3 = Color3.new(1, 1, 1)
+downButton.BorderSizePixel = 0
+downButton.Visible = false
+Instance.new("UICorner", downButton).CornerRadius = UDim.new(0, 8)
+
+-- Bay len/xuong khi giu nut
+local isGoingUp = false
+local isGoingDown = false
+
+upButton.MouseButton1Down:Connect(function()
+    isGoingUp = true
+end)
+upButton.MouseButton1Up:Connect(function()
+    isGoingUp = false
+end)
+
+downButton.MouseButton1Down:Connect(function()
+    isGoingDown = true
+end)
+downButton.MouseButton1Up:Connect(function()
+    isGoingDown = false
+end)
+
+-- Bat dau bay
+local function startFly()
     local char = player.Character
     if not char then return end
     
+    local hum = char:FindFirstChild("Humanoid")
     local root = char:FindFirstChild("HumanoidRootPart")
+    
     if not root then return end
     
-    local hum = char:FindFirstChild("Humanoid")
+    if bodyVel then bodyVel:Destroy() end
+    if bodyGyro then bodyGyro:Destroy() end
+    
+    bodyVel = Instance.new("BodyVelocity")
+    bodyVel.MaxForce = Vector3.new(1, 1, 1) * math.huge
+    bodyVel.Velocity = Vector3.new(0, 0, 0)
+    bodyVel.Parent = root
+    
+    bodyGyro = Instance.new("BodyGyro")
+    bodyGyro.MaxTorque = Vector3.new(1, 1, 1) * math.huge
+    bodyGyro.Parent = root
+    
     if hum then
         hum.PlatformStand = true
     end
-    
-    if bodyVelocity then bodyVelocity:Destroy() end
-    
-    bodyVelocity = Instance.new("BodyVelocity")
-    bodyVelocity.MaxForce = Vector3.new(1, 1, 1) * math.huge
-    bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-    bodyVelocity.Parent = root
 end
 
--- Hàm tắt fly
-local function disableFly()
-    if bodyVelocity then
-        bodyVelocity:Destroy()
-        bodyVelocity = nil
-    end
+local function stopFly()
+    if bodyVel then bodyVel:Destroy() bodyVel = nil end
+    if bodyGyro then bodyGyro:Destroy() bodyGyro = nil end
     
     local char = player.Character
     if char then
         local hum = char:FindFirstChild("Humanoid")
-        if hum then
-            hum.PlatformStand = false
-        end
+        if hum then hum.PlatformStand = false end
     end
 end
 
--- Cập nhật hướng bay
+-- Vong lap dieu khien bay
+local flyLoop = nil
+
 local function updateFly()
     if not flyEnabled then return end
     
@@ -882,53 +989,69 @@ local function updateFly()
     local hum = char:FindFirstChild("Humanoid")
     if not hum then return end
     
-    -- Lấy hướng di chuyển từ joystick hoặc bàn phím
-    local moveDirection = hum.MoveDirection
+    local cam = workspace.CurrentCamera
+    local moveDir = hum.MoveDirection
     
-    if moveDirection.Magnitude > 0 then
-        -- Bay theo hướng joystick
-        bodyVelocity.Velocity = moveDirection * flySpeed
-    else
-        -- Đứng yên nếu không có lệnh di chuyển
-        bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+    -- Huong bay (tien/lui/trai/phai)
+    local horizontal = Vector3.new()
+    if moveDir.Magnitude > 0 then
+        horizontal = (cam.CFrame.LookVector * moveDir.Z + cam.CFrame.RightVector * moveDir.X).Unit
     end
+    
+    -- Huong len/xuong
+    local vertical = Vector3.new()
+    if isGoingUp then
+        vertical = Vector3.new(0, 1, 0)
+    elseif isGoingDown then
+        vertical = Vector3.new(0, -1, 0)
+    end
+    
+    -- Tong hop
+    local totalDir = horizontal + vertical
+    if totalDir.Magnitude > 0 then
+        bodyVel.Velocity = totalDir.Unit * flySpeed
+    else
+        bodyVel.Velocity = Vector3.new(0, 0, 0)
+    end
+    
+    -- Xoay nhan vat theo camera
+    bodyGyro.CFrame = cam.CFrame
 end
 
--- Bật/tắt fly
 local function toggleFly()
     flyEnabled = not flyEnabled
     
     if flyEnabled then
         flyBtn.Text = "FLY [ON]"
         flyBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 220)
+        sliderFrame.Visible = true
+        upButton.Visible = true
+        downButton.Visible = true
         status.Text = "STATUS : FLY ON (SPEED: " .. flySpeed .. ")"
         
-        -- Đảm bảo fly được bật
-        task.wait(0.1)
-        enableFly()
+        startFly()
         
-        -- Tạo vòng lặp cập nhật hướng bay
         if flyLoop then flyLoop:Disconnect() end
         flyLoop = RunService.RenderStepped:Connect(updateFly)
     else
         flyBtn.Text = "FLY"
         flyBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+        sliderFrame.Visible = false
+        upButton.Visible = false
+        downButton.Visible = false
         status.Text = "STATUS : READY"
         
-        if flyLoop then
-            flyLoop:Disconnect()
-            flyLoop = nil
-        end
-        disableFly()
+        if flyLoop then flyLoop:Disconnect() flyLoop = nil end
+        stopFly()
     end
 end
 
 flyBtn.MouseButton1Click:Connect(toggleFly)
 
--- Khi nhân vật respawn, tự động bật lại fly nếu đang bật
 player.CharacterAdded:Connect(function()
     if flyEnabled then
         task.wait(0.5)
-        enableFly()
+        stopFly()
+        startFly()
     end
 end)
