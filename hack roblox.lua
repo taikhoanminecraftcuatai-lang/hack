@@ -1764,44 +1764,345 @@ end
 
 InitializePOV()
 --========================
--- INFINITE JUMP
+-- SYSTEM: INFINITE JUMP PRO MAX
+-- Version: 4.0
+-- Tác giả: Sidbuddb
+-- Mô tả: Cho phép nhảy vô hạn trên không, tùy chỉnh độ cao, phím tắt, chế độ hoạt động
+-- Tối ưu: Hoạt động mượt, tránh anti-cheat cơ bản, có thể bật/tắt dễ dàng
 --========================
 
-local infiniteJumpEnabled = false
-local jumpBtn = makeButton("INFINITE JUMP", 2, 2, Color3.fromRGB(100, 150, 100))
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 
-local function onJumpRequest()
-    if not infiniteJumpEnabled then return end
+local player = Players.LocalPlayer
+
+-- ==================== CẤU HÌNH INFINITE JUMP ====================
+local InfiniteJumpConfig = {
+    -- Cài đặt cơ bản
+    Enabled = false,
+    JumpPower = 60,                 -- Lực nhảy (mặc định 50, tăng lên để nhảy cao hơn)
+    MaxJumpPower = 120,             -- Giới hạn lực nhảy tối đa
+    MinJumpPower = 40,              -- Giới hạn lực nhảy tối thiểu
+    
+    -- Cài đặt chế độ nhảy
+    Mode = "Infinite",              -- Chế độ: "Infinite" (nhảy liên tục), "SuperJump" (mỗi lần nhảy cực cao)
+    GroundDetection = true,         -- Chỉ cho nhảy trên không khi đã bật (vẫn nhảy được khi trên không)
+    AntiStuck = true,               -- Chống kẹt khi nhảy vào tường/trần
+    
+    -- Cài đặt phím tắt
+    ToggleKey = Enum.KeyCode.J,     -- Phím bật/tắt (mặc định J)
+    JumpKey = Enum.KeyCode.Space,   -- Phím nhảy (mặc định Space)
+    IncreaseKey = Enum.KeyCode.RightBracket,   -- Phím tăng lực nhảy (])
+    DecreaseKey = Enum.KeyCode.LeftBracket,    -- Phím giảm lực nhảy ([)
+    
+    -- Cài đặt hiển thị
+    ShowStatus = true,              -- Hiển thị trạng thái trên GUI
+    ShowJumpPower = true,           -- Hiển thị lực nhảy hiện tại
+    ShowNotification = true,        -- Hiển thị thông báo khi bật/tắt bằng phím
+    
+    -- Cài đặt nâng cao
+    PreserveVelocity = true,        -- Giữ vận tốc khi nhảy (tạo cảm giác mượt)
+    AntiCheatBypass = true,         -- Cố gắng tránh phát hiện (set lại JumpPower sau mỗi lần nhảy)
+    ResetOnRespawn = true,          -- Reset trạng thái khi chết/respawn
+}
+
+-- ==================== BIẾN TOÀN CỤC ====================
+local InfiniteJumpState = {
+    IsActive = false,
+    OriginalJumpPower = nil,        -- Lưu lực nhảy gốc để khôi phục
+    LastJumpTime = 0,
+    JumpCount = 0,
+    UpdateConnection = nil,
+    JumpRequestConnection = nil,
+    ActiveModifier = 1,             -- Hệ số nhân cho lực nhảy (chưa dùng)
+}
+
+-- ==================== HÀM TIỆN ÍCH ====================
+local function GetCurrentTime()
+    return tick()
+end
+
+local function SaveOriginalJumpPower()
     local char = player.Character
     if not char then return end
     local hum = char:FindFirstChild("Humanoid")
-    if not hum then return end
-    if hum.FloorMaterial == Enum.Material.Air then
-        hum:ChangeState(Enum.HumanoidStateType.Jumping)
+    if hum and InfiniteJumpState.OriginalJumpPower == nil then
+        InfiniteJumpState.OriginalJumpPower = hum.JumpPower
     end
 end
 
-local jumpConnection = nil
+local function RestoreOriginalJumpPower()
+    local char = player.Character
+    if not char then return end
+    local hum = char:FindFirstChild("Humanoid")
+    if hum and InfiniteJumpState.OriginalJumpPower then
+        hum.JumpPower = InfiniteJumpState.OriginalJumpPower
+    end
+end
 
-local function toggleInfiniteJump()
-    infiniteJumpEnabled = not infiniteJumpEnabled
+local function SetJumpPower(value)
+    local char = player.Character
+    if not char then return end
+    local hum = char:FindFirstChild("Humanoid")
+    if hum then
+        hum.JumpPower = math.clamp(value, InfiniteJumpConfig.MinJumpPower, InfiniteJumpConfig.MaxJumpPower)
+    end
+end
+
+local function GetCurrentJumpPower()
+    local char = player.Character
+    if not char then return InfiniteJumpConfig.JumpPower
+    end
+    local hum = char:FindFirstChild("Humanoid")
+    return hum and hum.JumpPower or InfiniteJumpConfig.JumpPower
+end
+
+-- ==================== CƠ CHẾ NHẢY CHÍNH ====================
+local function PerformInfiniteJump()
+    if not InfiniteJumpState.IsActive then return end
     
-    if infiniteJumpEnabled then
+    local char = player.Character
+    if not char then return end
+    
+    local hum = char:FindFirstChild("Humanoid")
+    if not hum or hum.Health <= 0 then return end
+    
+    -- Lưu lực nhảy gốc nếu chưa có
+    SaveOriginalJumpPower()
+    
+    -- Thiết lập lực nhảy theo cấu hình
+    if InfiniteJumpConfig.AntiCheatBypass then
+        -- Cách anti-cheat: set JumpPower trước khi nhảy, sau đó khôi phục
+        local targetJumpPower = InfiniteJumpConfig.JumpPower
+        if InfiniteJumpConfig.Mode == "SuperJump" then
+            targetJumpPower = InfiniteJumpConfig.MaxJumpPower
+        end
+        hum.JumpPower = targetJumpPower
+    else
+        -- Set trực tiếp (dễ bị phát hiện hơn)
+        if InfiniteJumpConfig.Mode == "Infinite" then
+            hum.JumpPower = InfiniteJumpConfig.JumpPower
+        elseif InfiniteJumpConfig.Mode == "SuperJump" then
+            hum.JumpPower = InfiniteJumpConfig.MaxJumpPower
+        end
+    end
+    
+    -- Kích hoạt nhảy
+    hum:ChangeState(Enum.HumanoidStateType.Jumping)
+    
+    -- Ghi nhận thời gian
+    InfiniteJumpState.LastJumpTime = GetCurrentTime()
+    InfiniteJumpState.JumpCount = InfiniteJumpState.JumpCount + 1
+    
+    -- Nếu dùng anti-cheat, sau khi nhảy sẽ khôi phục lại lực nhảy gốc
+    if InfiniteJumpConfig.AntiCheatBypass then
+        task.spawn(function()
+            task.wait(0.05)
+            if hum and InfiniteJumpState.OriginalJumpPower then
+                hum.JumpPower = InfiniteJumpState.OriginalJumpPower
+            end
+        end)
+    end
+end
+
+-- ==================== XỬ LÝ SỰ KIỆN NHẢY ====================
+local function OnJumpRequest()
+    if not InfiniteJumpState.IsActive then return end
+    
+    local char = player.Character
+    if not char then return end
+    
+    local hum = char:FindFirstChild("Humanoid")
+    if not hum or hum.Health <= 0 then return end
+    
+    -- Cho phép nhảy ngay cả khi đang ở trên không (nếu đã bật infinite)
+    if InfiniteJumpConfig.GroundDetection then
+        -- Luôn cho phép nhảy, không cần kiểm tra chạm đất
+        PerformInfiniteJump()
+    else
+        -- Chỉ nhảy khi đang ở trên không (giống vô hạn nhưng có thể kiểm soát)
+        if hum.FloorMaterial == Enum.Material.Air then
+            PerformInfiniteJump()
+        end
+    end
+end
+
+-- ==================== TĂNG / GIẢM LỰC NHẢY ====================
+local function IncreaseJumpPower()
+    local newPower = math.min(InfiniteJumpConfig.MaxJumpPower, InfiniteJumpConfig.JumpPower + 5)
+    InfiniteJumpConfig.JumpPower = newPower
+    if InfiniteJumpState.IsActive then
+        SetJumpPower(newPower)
+    end
+    if InfiniteJumpConfig.ShowJumpPower and InfiniteJumpConfig.ShowStatus then
+        status.Text = "STATUS : JUMP POWER = " .. tostring(newPower)
+        task.wait(1)
+        if InfiniteJumpState.IsActive then
+            status.Text = "STATUS : INFINITE JUMP ON (Power: " .. newPower .. ")"
+        else
+            status.Text = "STATUS : READY"
+        end
+    end
+end
+
+local function DecreaseJumpPower()
+    local newPower = math.max(InfiniteJumpConfig.MinJumpPower, InfiniteJumpConfig.JumpPower - 5)
+    InfiniteJumpConfig.JumpPower = newPower
+    if InfiniteJumpState.IsActive then
+        SetJumpPower(newPower)
+    end
+    if InfiniteJumpConfig.ShowJumpPower and InfiniteJumpConfig.ShowStatus then
+        status.Text = "STATUS : JUMP POWER = " .. tostring(newPower)
+        task.wait(1)
+        if InfiniteJumpState.IsActive then
+            status.Text = "STATUS : INFINITE JUMP ON (Power: " .. newPower .. ")"
+        else
+            status.Text = "STATUS : READY"
+        end
+    end
+end
+
+-- ==================== BẬT / TẮT INFINITE JUMP ====================
+local function ShowNotification(message, isError)
+    if not InfiniteJumpConfig.ShowNotification then return end
+    
+    local notif = Instance.new("TextLabel")
+    notif.Parent = game.CoreGui
+    notif.Size = UDim2.new(0, 200, 0, 40)
+    notif.Position = UDim2.new(0.5, -100, 0.85, 0)
+    notif.BackgroundColor3 = isError and Color3.fromRGB(80, 0, 0) or Color3.fromRGB(0, 0, 0)
+    notif.BackgroundTransparency = 0.3
+    notif.TextColor3 = isError and Color3.fromRGB(255, 100, 100) or Color3.fromRGB(100, 255, 100)
+    notif.Font = Enum.Font.GothamBold
+    notif.TextSize = 14
+    notif.Text = message
+    notif.TextStrokeTransparency = 0.3
+    Instance.new("UICorner", notif).CornerRadius = UDim.new(0, 8)
+    
+    task.wait(1.5)
+    notif:Destroy()
+end
+
+local function EnableInfiniteJump()
+    if InfiniteJumpState.IsActive then return end
+    
+    -- Lưu lực nhảy gốc
+    SaveOriginalJumpPower()
+    
+    -- Set lực nhảy hiện tại
+    SetJumpPower(InfiniteJumpConfig.JumpPower)
+    
+    -- Kết nối sự kiện JumpRequest
+    if not InfiniteJumpState.JumpRequestConnection then
+        InfiniteJumpState.JumpRequestConnection = UserInputService.JumpRequest:Connect(OnJumpRequest)
+    end
+    
+    InfiniteJumpState.IsActive = true
+    if InfiniteJumpConfig.ShowStatus then
+        status.Text = "STATUS : INFINITE JUMP ON (Power: " .. InfiniteJumpConfig.JumpPower .. ")"
+    end
+    ShowNotification("INFINITE JUMP: BẬT - Lực nhảy " .. InfiniteJumpConfig.JumpPower)
+    
+    -- Cập nhật nút GUI
+    if jumpBtn then
         jumpBtn.Text = "INFINITE JUMP [ON]"
         jumpBtn.BackgroundColor3 = Color3.fromRGB(130, 180, 130)
-        status.Text = "STATUS : INFINITE JUMP ON"
-        if not jumpConnection then
-            jumpConnection = game:GetService("UserInputService").JumpRequest:Connect(onJumpRequest)
-        end
-    else
+    end
+end
+
+local function DisableInfiniteJump()
+    if not InfiniteJumpState.IsActive then return end
+    
+    -- Ngắt kết nối JumpRequest
+    if InfiniteJumpState.JumpRequestConnection then
+        InfiniteJumpState.JumpRequestConnection:Disconnect()
+        InfiniteJumpState.JumpRequestConnection = nil
+    end
+    
+    -- Khôi phục lực nhảy gốc
+    RestoreOriginalJumpPower()
+    
+    InfiniteJumpState.IsActive = false
+    if InfiniteJumpConfig.ShowStatus then
+        status.Text = "STATUS : READY"
+    end
+    ShowNotification("INFINITE JUMP: TẮT")
+    
+    -- Cập nhật nút GUI
+    if jumpBtn then
         jumpBtn.Text = "INFINITE JUMP"
         jumpBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
-        status.Text = "STATUS : READY"
-        if jumpConnection then
-            jumpConnection:Disconnect()
-            jumpConnection = nil
+    end
+end
+
+local function ToggleInfiniteJump()
+    if InfiniteJumpState.IsActive then
+        DisableInfiniteJump()
+    else
+        EnableInfiniteJump()
+    end
+end
+
+-- ==================== XỬ LÝ RESPAWN ====================
+local function OnCharacterAdded(character)
+    if InfiniteJumpConfig.ResetOnRespawn then
+        if InfiniteJumpState.IsActive then
+            -- Tạm thời tắt rồi bật lại để reset trạng thái
+            local wasActive = InfiniteJumpState.IsActive
+            if wasActive then
+                DisableInfiniteJump()
+                task.wait(0.2)
+                EnableInfiniteJump()
+            end
+        else
+            -- Đảm bảo lực nhảy gốc được lưu khi respawn
+            SaveOriginalJumpPower()
         end
     end
 end
 
-jumpBtn.MouseButton1Click:Connect(toggleInfiniteJump)
+player.CharacterAdded:Connect(OnCharacterAdded)
+
+-- ==================== THIẾT LẬP PHÍM TẮT ====================
+local function SetupHotkeys()
+    UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        
+        -- Phím bật/tắt Infinite Jump
+        if input.KeyCode == InfiniteJumpConfig.ToggleKey then
+            ToggleInfiniteJump()
+        end
+        
+        -- Phím tăng lực nhảy
+        if input.KeyCode == InfiniteJumpConfig.IncreaseKey then
+            IncreaseJumpPower()
+        end
+        
+        -- Phím giảm lực nhảy
+        if input.KeyCode == InfiniteJumpConfig.DecreaseKey then
+            DecreaseJumpPower()
+        end
+    end)
+end
+
+-- ==================== TẠO NÚT GUI ====================
+local jumpBtn = makeButton("INFINITE JUMP", 2, 2, Color3.fromRGB(100, 150, 100))
+jumpBtn.MouseButton1Click:Connect(ToggleInfiniteJump)
+
+-- ==================== KHỞI TẠO ====================
+local function InitializeInfiniteJump()
+    SetupHotkeys()
+    -- Lưu lực nhảy gốc khi script chạy lần đầu
+    task.wait(0.5)
+    SaveOriginalJumpPower()
+    
+    print("[INFINITE JUMP] Đã khởi tạo thành công!")
+    print("   - Chế độ: " .. InfiniteJumpConfig.Mode)
+    print("   - Lực nhảy mặc định: " .. InfiniteJumpConfig.JumpPower)
+    print("   - Phím bật/tắt: " .. tostring(InfiniteJumpConfig.ToggleKey))
+    print("   - Phím tăng/giảm lực nhảy: " .. tostring(InfiniteJumpConfig.IncreaseKey) .. " / " .. tostring(InfiniteJumpConfig.DecreaseKey))
+end
+
+InitializeInfiniteJump()
