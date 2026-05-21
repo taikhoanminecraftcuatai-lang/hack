@@ -813,7 +813,7 @@ end)
 
 local godModeEnabled = false
 
-local godBtn = makeButton("GODMODE", 4, 1, Color3.fromRGB(200, 100, 50))
+local godBtn = makeButton("GODMODE", 3, 1, Color3.fromRGB(200, 100, 50))
 
 -- Luu tat ca ket noi de quan ly
 local allConnections = {}
