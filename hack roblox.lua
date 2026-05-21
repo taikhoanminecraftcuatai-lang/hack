@@ -815,7 +815,7 @@ local clickInterval = 1 / clickCPS
 local clickThread = nil
 local isRunning = false
 
-local autoClickerBtn = makeButton("AUTO CLICKER", 3, 1, Color3.fromRGB(200, 150, 50))
+local autoClickerBtn = makeButton("AUTO CLICKER", 2, 1, Color3.fromRGB(200, 150, 50))
 local incBtn = makeButton("+", 3, 2, Color3.fromRGB(80, 80, 100))
 local decBtn = makeButton("-", 4, 1, Color3.fromRGB(80, 80, 100))
 local cpsLabel = makeButton("CPS:30", 4, 2, Color3.fromRGB(60, 60, 80))
