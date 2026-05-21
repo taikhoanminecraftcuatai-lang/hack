@@ -324,11 +324,11 @@ end
 -- Ham cap nhat trang thai nut bam
 local function updateButtonAppearance()
     if aimbotEnabled then
-        aimBtn.Text = "🎯 AIM LOCK [ON]"
+        aimBtn.Text = " AIM LOCK [ON]"
         aimBtn.BackgroundColor3 = Color3.fromRGB(100, 70, 150)
         status.Text = "STATUS : AIM LOCK ACTIVE - Targeting closest player"
     else
-        aimBtn.Text = "🎯 AIM LOCK"
+        aimBtn.Text = " AIM LOCK"
         aimBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
         status.Text = "STATUS : READY - Aim Lock disabled"
         currentClosestTarget = nil
@@ -506,257 +506,448 @@ userInputService.InputBegan:Connect(function(input, gameProcessed)
     end
 end)
 --========================
--- ESP PLAYER (CHUYEN NGHIEP, KHONG ICON)
+-- ESP PLAYER CHUYEN NGHIEP (CO DINH LOI)
 --========================
+-- Created by: Sidbuddb
+-- Version: 3.0
+-- Description: Hien thi ten, mau, khoang cach cua nguoi choi qua tuong
 
 local espEnabled = false
-local espObjects = {}
+local espObjects = {}  -- Luu tru cac object ESP
+local retryCount = {}  -- Dem so lan thu lai khi loi
+local maxRetries = 3   -- So lan thu lai toi da
 
 local espBtn = makeButton("ESP PLAYER", 1, 2, Color3.fromRGB(50, 100, 150))
 
+-- Cau hinh ESP
+local config = {
+    maxDistance = 250,           -- Khoang cach toi da de hien ESP
+    updateInterval = 0.05,       -- Thoi gian giup cap nhat (giay)
+    showHealthBar = true,        -- Hien thi thanh mau
+    showHealthText = true,       -- Hien thi so mau
+    showDistance = true,         -- Hien thi khoang cach
+    boxThickness = 0.08,         -- Do day khung vien
+    boxTransparency = 0.4,       -- Do trong suot cua khung
+    nameTextSize = 14,           -- Kich thuoc ten
+    healthTextSize = 11,         -- Kich thuoc chu mau
+    distanceTextSize = 10,       -- Kich thuoc chu khoang cach
+}
+
+-- Ham lay mau sac theo ty le mau
 local function getHealthColor(health, maxHealth)
     local percent = health / maxHealth
     if percent > 0.7 then
-        return Color3.fromRGB(0, 255, 0)
+        return Color3.fromRGB(0, 255, 0)      -- Xanh: tren 70%
     elseif percent > 0.3 then
-        return Color3.fromRGB(255, 255, 0)
+        return Color3.fromRGB(255, 255, 0)    -- Vang: 30% - 70%
     else
-        return Color3.fromRGB(255, 0, 0)
+        return Color3.fromRGB(255, 0, 0)      -- Do: duoi 30%
     end
 end
 
-local function createESP(targetPlayer)
-    if espObjects[targetPlayer] then
-        destroyESP(targetPlayer)
+-- Ham lay mau khung theo khoang cach
+local function getBoxColorByDistance(distance)
+    if distance < 50 then
+        return Color3.fromRGB(255, 50, 50)     -- Do: rat gan
+    elseif distance < 100 then
+        return Color3.fromRGB(255, 150, 50)    -- Cam: gan
+    elseif distance < 180 then
+        return Color3.fromRGB(255, 255, 100)   -- Vang: trung binh
+    else
+        return Color3.fromRGB(200, 200, 255)   -- Trang xanh: xa
     end
+end
+
+-- Ham kiem tra nguoi choi co hop le de tao ESP khong
+local function isValidForESP(targetPlayer)
+    if not targetPlayer then return false end
+    if targetPlayer == player then return false end
     
-    local char = targetPlayer.Character
-    if not char then return end
+    local character = targetPlayer.Character
+    if not character then return false end
     
-    local root = char:FindFirstChild("HumanoidRootPart")
-    local head = char:FindFirstChild("Head")
-    local hum = char:FindFirstChild("Humanoid")
+    local humanoid = character:FindFirstChild("Humanoid")
+    if not humanoid then return false end
+    if humanoid.Health <= 0 then return false end
     
-    if not root or not head or not hum then return end
+    local head = character:FindFirstChild("Head")
+    local root = character:FindFirstChild("HumanoidRootPart")
     
-    local billboard = Instance.new("BillboardGui")
-    billboard.Name = "ESP_Billboard"
-    billboard.Size = UDim2.new(0, 180, 0, 55)
-    billboard.StudsOffset = Vector3.new(0, 2.8, 0)
-    billboard.AlwaysOnTop = true
-    billboard.Parent = head
-    
-    local nameLabel = Instance.new("TextLabel")
-    nameLabel.Size = UDim2.new(1, 0, 0, 20)
-    nameLabel.Position = UDim2.new(0, 0, 0, 0)
-    nameLabel.BackgroundTransparency = 1
-    nameLabel.Text = targetPlayer.Name
-    nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    nameLabel.TextStrokeTransparency = 0.3
-    nameLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
-    nameLabel.Font = Enum.Font.GothamBold
-    nameLabel.TextSize = 14
-    nameLabel.Parent = billboard
-    
-    local healthBarBg = Instance.new("Frame")
-    healthBarBg.Size = UDim2.new(0.9, 0, 0, 6)
-    healthBarBg.Position = UDim2.new(0.05, 0, 0.4, 0)
-    healthBarBg.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    healthBarBg.BorderSizePixel = 0
-    healthBarBg.Parent = billboard
-    
-    local healthBar = Instance.new("Frame")
-    healthBar.Size = UDim2.new(1, 0, 1, 0)
-    healthBar.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
-    healthBar.BorderSizePixel = 0
-    healthBar.Parent = healthBarBg
-    
-    local healthText = Instance.new("TextLabel")
-    healthText.Size = UDim2.new(1, 0, 0, 15)
-    healthText.Position = UDim2.new(0, 0, 0.55, 0)
-    healthText.BackgroundTransparency = 1
-    healthText.Text = ""
-    healthText.TextColor3 = Color3.fromRGB(255, 255, 255)
-    healthText.Font = Enum.Font.Gotham
-    healthText.TextSize = 11
-    healthText.Parent = billboard
-    
-    local distLabel = Instance.new("TextLabel")
-    distLabel.Size = UDim2.new(1, 0, 0, 15)
-    distLabel.Position = UDim2.new(0, 0, 0.75, 0)
-    distLabel.BackgroundTransparency = 1
-    distLabel.Text = ""
-    distLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-    distLabel.Font = Enum.Font.Gotham
-    distLabel.TextSize = 10
-    distLabel.Parent = billboard
-    
-    local boxOutline = Instance.new("SelectionBox")
-    boxOutline.Adornee = root
-    boxOutline.Color3 = Color3.fromRGB(255, 0, 0)
-    boxOutline.LineThickness = 0.08
-    boxOutline.Transparency = 0.4
-    boxOutline.Parent = char
-    
-    local line = Instance.new("SelectionPartLasso")
-    line.Name = "ESP_Line"
-    line.Humanoid = hum
-    line.Part = root
-    line.Color3 = Color3.fromRGB(255, 255, 255)
-    line.Transparency = 0.3
-    line.Visible = true
-    line.Parent = char
-    
-    espObjects[targetPlayer] = {
-        billboard = billboard,
-        box = boxOutline,
-        line = line,
-        nameLabel = nameLabel,
-        healthBar = healthBar,
-        healthText = healthText,
-        distLabel = distLabel,
-        humanoid = hum,
-        root = root
-    }
+    if not head or not root then return false end
     
     return true
 end
 
-local function updateESP()
+-- Ham tao Billboard (hien thi ten, mau, khoang cach)
+local function createBillboard(targetPlayer)
+    local character = targetPlayer.Character
+    if not character then return nil end
+    
+    local head = character:FindFirstChild("Head")
+    if not head then return nil end
+    
+    -- Tao BillboardGui
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "ESP_Billboard_" .. targetPlayer.Name
+    billboard.Size = UDim2.new(0, 220, 0, 70)
+    billboard.StudsOffset = Vector3.new(0, 2.5, 0)
+    billboard.AlwaysOnTop = true
+    billboard.MaxDistance = config.maxDistance
+    billboard.ExtentsOffsetWorldSpace = Vector3.new(0, 3, 0)
+    billboard.Parent = head
+    
+    -- Khung chua (de to mau nen)
+    local bgFrame = Instance.new("Frame")
+    bgFrame.Size = UDim2.new(1, 0, 1, 0)
+    bgFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    bgFrame.BackgroundTransparency = 0.5
+    bgFrame.BorderSizePixel = 0
+    bgFrame.Parent = billboard
+    
+    -- Ten nguoi choi
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Name = "NameLabel"
+    nameLabel.Size = UDim2.new(1, 0, 0, 22)
+    nameLabel.Position = UDim2.new(0, 0, 0, 0)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text = targetPlayer.Name
+    nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    nameLabel.TextStrokeTransparency = 0.2
+    nameLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+    nameLabel.Font = Enum.Font.GothamBold
+    nameLabel.TextSize = config.nameTextSize
+    nameLabel.TextXAlignment = Enum.TextXAlignment.Center
+    nameLabel.Parent = billboard
+    
+    -- Thanh mau (neu bat)
+    local healthBar = nil
+    local healthBarBg = nil
+    
+    if config.showHealthBar then
+        healthBarBg = Instance.new("Frame")
+        healthBarBg.Name = "HealthBarBg"
+        healthBarBg.Size = UDim2.new(0.9, 0, 0, 6)
+        healthBarBg.Position = UDim2.new(0.05, 0, 0.35, 0)
+        healthBarBg.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        healthBarBg.BorderSizePixel = 0
+        healthBarBg.Parent = billboard
+        
+        healthBar = Instance.new("Frame")
+        healthBar.Name = "HealthBar"
+        healthBar.Size = UDim2.new(1, 0, 1, 0)
+        healthBar.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+        healthBar.BorderSizePixel = 0
+        healthBar.Parent = healthBarBg
+    end
+    
+    -- So mau (neu bat)
+    local healthText = nil
+    if config.showHealthText then
+        healthText = Instance.new("TextLabel")
+        healthText.Name = "HealthText"
+        healthText.Size = UDim2.new(1, 0, 0, 16)
+        healthText.Position = UDim2.new(0, 0, 0.48, 0)
+        healthText.BackgroundTransparency = 1
+        healthText.Text = ""
+        healthText.TextColor3 = Color3.fromRGB(255, 255, 255)
+        healthText.Font = Enum.Font.Gotham
+        healthText.TextSize = config.healthTextSize
+        healthText.TextXAlignment = Enum.TextXAlignment.Center
+        healthText.Parent = billboard
+    end
+    
+    -- Khoang cach (neu bat)
+    local distanceLabel = nil
+    if config.showDistance then
+        distanceLabel = Instance.new("TextLabel")
+        distanceLabel.Name = "DistanceLabel"
+        distanceLabel.Size = UDim2.new(1, 0, 0, 14)
+        distanceLabel.Position = UDim2.new(0, 0, 0.7, 0)
+        distanceLabel.BackgroundTransparency = 1
+        distanceLabel.Text = ""
+        distanceLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+        distanceLabel.Font = Enum.Font.Gotham
+        distanceLabel.TextSize = config.distanceTextSize
+        distanceLabel.TextXAlignment = Enum.TextXAlignment.Center
+        distanceLabel.Parent = billboard
+    end
+    
+    return {
+        billboard = billboard,
+        nameLabel = nameLabel,
+        healthBarBg = healthBarBg,
+        healthBar = healthBar,
+        healthText = healthText,
+        distanceLabel = distanceLabel
+    }
+end
+
+-- Ham tao SelectionBox (khung vien quanh nguoi)
+local function createSelectionBox(targetPlayer)
+    local character = targetPlayer.Character
+    if not character then return nil end
+    
+    local root = character:FindFirstChild("HumanoidRootPart")
+    if not root then return nil end
+    
+    local box = Instance.new("SelectionBox")
+    box.Name = "ESP_Box_" .. targetPlayer.Name
+    box.Adornee = root
+    box.Color3 = Color3.fromRGB(255, 0, 0)
+    box.LineThickness = config.boxThickness
+    box.Transparency = config.boxTransparency
+    box.Parent = character
+    
+    return box
+end
+
+-- Tao toan bo ESP cho 1 nguoi choi
+local function createESPForPlayer(targetPlayer)
+    -- Xoa ESP cu neu co
+    destroyESP(targetPlayer)
+    
+    -- Kiem tra hop le
+    if not isValidForESP(targetPlayer) then
+        return false
+    end
+    
+    -- Tao cac thanh phan
+    local billboardData = createBillboard(targetPlayer)
+    local box = createSelectionBox(targetPlayer)
+    
+    if not billboardData or not box then
+        -- Thu lai sau 0.5 giay neu that bai
+        retryCount[targetPlayer] = (retryCount[targetPlayer] or 0) + 1
+        if retryCount[targetPlayer] <= maxRetries then
+            task.wait(0.5)
+            createESPForPlayer(targetPlayer)
+        end
+        return false
+    end
+    
+    -- Luu lai
+    espObjects[targetPlayer] = {
+        billboard = billboardData.billboard,
+        box = box,
+        nameLabel = billboardData.nameLabel,
+        healthBarBg = billboardData.healthBarBg,
+        healthBar = billboardData.healthBar,
+        healthText = billboardData.healthText,
+        distanceLabel = billboardData.distanceLabel,
+        lastHealth = nil,
+        lastDistance = nil
+    }
+    
+    -- Xoa bo dem thu lai
+    retryCount[targetPlayer] = nil
+    
+    return true
+end
+
+-- Cap nhat thong tin ESP (mau, khoang cach)
+local function updateESPInfo()
     local myChar = player.Character
     local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
     
-    for other, data in pairs(espObjects) do
-        if other and data and data.humanoid and data.root then
-            local health = data.humanoid.Health
-            local maxHealth = data.humanoid.MaxHealth
-            local healthPercent = health / maxHealth
-            
-            if data.healthBar then
-                data.healthBar.Size = UDim2.new(healthPercent, 0, 1, 0)
-                data.healthBar.BackgroundColor3 = getHealthColor(health, maxHealth)
-            end
-            
-            if data.healthText then
-                data.healthText.Text = string.format("%.0f / %.0f", health, maxHealth)
-                data.healthText.TextColor3 = getHealthColor(health, maxHealth)
-            end
-            
-            if myRoot and data.root then
-                local dist = (myRoot.Position - data.root.Position).Magnitude
-                if data.distLabel then
-                    data.distLabel.Text = string.format("%.1f m", dist)
-                end
-                
-                local isVisible = dist <= 200
-                if data.billboard then data.billboard.Enabled = isVisible end
-                if data.box then data.box.Visible = isVisible end
-                if data.line then data.line.Visible = isVisible end
-                
-                if data.box then
-                    if dist < 50 then
-                        data.box.Color3 = Color3.fromRGB(255, 50, 50)
-                    elseif dist < 100 then
-                        data.box.Color3 = Color3.fromRGB(255, 200, 50)
-                    else
-                        data.box.Color3 = Color3.fromRGB(255, 255, 255)
-                    end
-                end
-                
-                if data.line then
-                    if dist < 50 then
-                        data.line.Color3 = Color3.fromRGB(255, 50, 50)
-                    elseif dist < 100 then
-                        data.line.Color3 = Color3.fromRGB(255, 200, 50)
-                    else
-                        data.line.Color3 = Color3.fromRGB(255, 255, 255)
-                    end
-                end
-            end
-        else
-            destroyESP(other)
+    for targetPlayer, data in pairs(espObjects) do
+        -- Kiem tra nguoi choi con ton tai khong
+        if not targetPlayer or not targetPlayer.Character then
+            destroyESP(targetPlayer)
+            goto continue
         end
+        
+        local character = targetPlayer.Character
+        local humanoid = character:FindFirstChild("Humanoid")
+        local root = character:FindFirstChild("HumanoidRootPart")
+        
+        if not humanoid or not root or humanoid.Health <= 0 then
+            destroyESP(targetPlayer)
+            goto continue
+        end
+        
+        -- Lay mau va khoang cach
+        local health = humanoid.Health
+        local maxHealth = humanoid.MaxHealth
+        local healthPercent = health / maxHealth
+        local healthColor = getHealthColor(health, maxHealth)
+        
+        local distance = 0
+        local boxColor = Color3.fromRGB(255, 0, 0)
+        
+        if myRoot then
+            distance = (myRoot.Position - root.Position).Magnitude
+            boxColor = getBoxColorByDistance(distance)
+        end
+        
+        -- An ESP neu qua xa
+        local isVisible = distance <= config.maxDistance
+        if data.billboard then
+            data.billboard.Enabled = isVisible
+        end
+        if data.box then
+            data.box.Visible = isVisible
+        end
+        
+        -- Cap nhat thanh mau
+        if data.healthBar and healthPercent then
+            data.healthBar.Size = UDim2.new(healthPercent, 0, 1, 0)
+            data.healthBar.BackgroundColor3 = healthColor
+        end
+        
+        -- Cap nhat so mau
+        if data.healthText then
+            data.healthText.Text = string.format("%.0f / %.0f", health, maxHealth)
+            data.healthText.TextColor3 = healthColor
+        end
+        
+        -- Cap nhat khoang cach
+        if data.distanceLabel then
+            data.distanceLabel.Text = string.format("%.1f m", distance)
+        end
+        
+        -- Cap nhat mau khung
+        if data.box then
+            data.box.Color3 = boxColor
+        end
+        
+        ::continue::
     end
 end
 
-local function destroyESP(target)
-    local data = espObjects[target]
+-- Xoa ESP cua 1 nguoi
+local function destroyESP(targetPlayer)
+    local data = espObjects[targetPlayer]
     if data then
-        if data.billboard then data.billboard:Destroy() end
-        if data.box then data.box:Destroy() end
-        if data.line then data.line:Destroy() end
-        espObjects[target] = nil
+        if data.billboard then pcall(function() data.billboard:Destroy() end) end
+        if data.box then pcall(function() data.box:Destroy() end) end
+        espObjects[targetPlayer] = nil
     end
+    retryCount[targetPlayer] = nil
 end
 
+-- Xoa toan bo ESP
 local function destroyAllESP()
-    for target, _ in pairs(espObjects) do
-        destroyESP(target)
+    for targetPlayer, _ in pairs(espObjects) do
+        destroyESP(targetPlayer)
     end
     espObjects = {}
+    retryCount = {}
 end
 
+-- Tao ESP cho tat ca nguoi choi
 local function createAllESP()
     destroyAllESP()
-    for _, other in pairs(Players:GetPlayers()) do
-        if other ~= player then
-            createESP(other)
+    
+    local players = Players:GetPlayers()
+    for _, otherPlayer in pairs(players) do
+        if otherPlayer ~= player then
+            -- Tao ngay neu co san, neu khong thi doi CharacterAdded
+            if otherPlayer.Character then
+                createESPForPlayer(otherPlayer)
+            else
+                -- Cho khi nao co Character
+                local charConn
+                charConn = otherPlayer.CharacterAdded:Connect(function()
+                    if espEnabled then
+                        task.wait(0.3)
+                        createESPForPlayer(otherPlayer)
+                    end
+                    charConn:Disconnect()
+                end)
+            end
         end
     end
 end
 
+-- Xu ly khi nguoi choi moi vao
+local function onPlayerAdded(newPlayer)
+    if not espEnabled then return end
+    if newPlayer == player then return end
+    
+    -- Doi mot chut de character load
+    task.wait(0.5)
+    
+    if newPlayer.Character then
+        createESPForPlayer(newPlayer)
+    else
+        local charConn
+        charConn = newPlayer.CharacterAdded:Connect(function()
+            if espEnabled then
+                task.wait(0.3)
+                createESPForPlayer(newPlayer)
+            end
+            charConn:Disconnect()
+        end)
+    end
+end
+
+-- Xu ly khi nguoi choi roi game
+local function onPlayerRemoving(leavingPlayer)
+    destroyESP(leavingPlayer)
+end
+
+-- Xu ly khi nhan vat cua nguoi khac thay doi
+local function onOtherCharacterAdded(targetPlayer)
+    if not espEnabled then return end
+    if targetPlayer == player then return end
+    
+    task.wait(0.3)
+    if isValidForESP(targetPlayer) then
+        createESPForPlayer(targetPlayer)
+    end
+end
+
+-- Dang ky su kien cho tung nguoi choi
+local function setupPlayerEvents(targetPlayer)
+    if targetPlayer == player then return end
+    
+    targetPlayer.CharacterAdded:Connect(function()
+        onOtherCharacterAdded(targetPlayer)
+    end)
+end
+
+-- Bat/tat ESP
 local function toggleESP()
     espEnabled = not espEnabled
     
     if espEnabled then
         createAllESP()
-        espBtn.Text = "ESP PLAYER ON"
+        espBtn.Text = "ESP PLAYER [ON]"
         espBtn.BackgroundColor3 = Color3.fromRGB(80, 130, 180)
-        status.Text = "STATUS : ESP PLAYER ON"
+        status.Text = "STATUS : ESP PLAYER ON (Range: " .. config.maxDistance .. ")"
+        
+        -- Dang ky su kien cho tat ca nguoi choi
+        for _, other in pairs(Players:GetPlayers()) do
+            setupPlayerEvents(other)
+        end
+        
+        -- Bat vong lap cap nhat
+        if not espUpdateLoop then
+            espUpdateLoop = RunService.RenderStepped:Connect(function()
+                if espEnabled then
+                    updateESPInfo()
+                end
+            end)
+        end
     else
         destroyAllESP()
         espBtn.Text = "ESP PLAYER"
         espBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
         status.Text = "STATUS : READY"
-    end
-end
-
-Players.PlayerAdded:Connect(function(newPlayer)
-    if espEnabled then
-        task.wait(0.5)
-        createESP(newPlayer)
-    end
-end)
-
-Players.PlayerRemoving:Connect(function(leavingPlayer)
-    if espObjects[leavingPlayer] then
-        destroyESP(leavingPlayer)
-    end
-end)
-
-local function onCharacterAdded(targetPlayer)
-    if espEnabled and targetPlayer ~= player then
-        task.wait(0.5)
-        if targetPlayer.Character then
-            createESP(targetPlayer)
+        
+        -- Tat vong lap cap nhat
+        if espUpdateLoop then
+            espUpdateLoop:Disconnect()
+            espUpdateLoop = nil
         end
     end
 end
 
-for _, other in pairs(Players:GetPlayers()) do
-    if other ~= player then
-        other.CharacterAdded:Connect(function()
-            onCharacterAdded(other)
-        end)
-    end
-end
+-- Dang ky cac su kien toan cuc
+Players.PlayerAdded:Connect(onPlayerAdded)
+Players.PlayerRemoving:Connect(onPlayerRemoving)
 
-RunService.RenderStepped:Connect(function()
-    if espEnabled then
-        updateESP()
-    end
-end)
-
+-- Xu ly khi nhan vat cua minh respawn
 player.CharacterAdded:Connect(function()
     if espEnabled then
         task.wait(1)
@@ -764,8 +955,15 @@ player.CharacterAdded:Connect(function()
     end
 end)
 
+-- Khoi tao cho nhung nguoi choi hien tai
+for _, other in pairs(Players:GetPlayers()) do
+    setupPlayerEvents(other)
+end
+
+-- Gan su kien cho nut bam
 espBtn.MouseButton1Click:Connect(toggleESP)
 
+--========================
 -- XEM NGUOI CHOI (GOC NHIN THU 3)
 --========================
 
