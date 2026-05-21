@@ -807,541 +807,123 @@ end)
 player.CharacterAdded:Connect(function()
     if espEnabled then task.wait(1) createAllESP() end
 end)--========================
--- SYSTEM: POV PLAYER PRO MAX (GÓC NHÌN THỨ 3)
--- Version: 4.0
--- Tác giả: Sidbuddb
--- Mô tả: Xem người chơi khác ở góc nhìn thứ 3, có thể tùy chỉnh khoảng cách, góc, độ mượt
--- Tối ưu: Xử lý khi target chết, respawn, mất kết nối
+-- AUTO CLICKER SIÊU NHANH (LÊN TỚI 100 CPS)
 --========================
+local autoClickerEnabled = false
+local clickCPS = 200               -- mặc định 30 clicks/giây (rất nhanh)
+local clickInterval = 1 / clickCPS
+local clickThread = nil
+local isRunning = false
 
-local RunService = game:GetService("RunService")
-local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
+local autoClickerBtn = makeButton("AUTO CLICKER", 3, 1, Color3.fromRGB(200, 150, 50))
+local incBtn = makeButton("+", 3, 2, Color3.fromRGB(80, 80, 100))
+local decBtn = makeButton("-", 4, 1, Color3.fromRGB(80, 80, 100))
+local cpsLabel = makeButton("CPS:30", 4, 2, Color3.fromRGB(60, 60, 80))
 
-local player = Players.LocalPlayer
-
--- ==================== CẤU HÌNH POV ====================
-local POVConfig = {
-    -- Cài đặt cơ bản
-    Enabled = false,
-    CurrentTarget = nil,
+-- Hàm thực hiện click (tối ưu, bỏ qua kiểm tra không cần thiết)
+local function doClick()
+    local char = player.Character
+    if not char then return end
     
-    -- Cài đặt camera
-    CameraDistance = 8,             -- Khoảng cách từ camera đến target (studs)
-    CameraHeight = 3,               -- Độ cao so với target (studs)
-    CameraOffset = Vector3.new(0, 0, 0),  -- Offset bổ sung (X: trái/phải, Y: lên/xuống, Z: tới/lùi)
-    Smoothness = 0.2,               -- Độ mượt khi camera di chuyển (0=không, 1=rất mượt)
-    
-    -- Cài đặt góc nhìn
-    FollowRotation = true,          -- Camera xoay theo hướng mặt của target
-    RotationSpeed = 5,              -- Tốc độ xoay camera khi follow rotation
-    
-    -- Cài đặt giới hạn
-    MaxDistance = 200,              -- Khoảng cách tối đa để có thể xem (studs)
-    AutoStopOnDeath = true,         -- Tự động dừng khi target chết
-    AutoStopOnTooFar = true,        -- Tự động dừng khi target quá xa
-    AutoStopOnLeave = true,         -- Tự động dừng khi target rời game
-    
-    -- Cài đặt hiển thị
-    ShowStatus = true,              -- Hiển thị trạng thái trên GUI
-    ShowCrosshair = false,          -- Hiển thị chấm giữa màn hình khi đang xem
-    
-    -- Cài đặt phím tắt
-    ToggleKey = Enum.KeyCode.P,     -- Phím bật/tắt POV
-    ExitKey = Enum.KeyCode.X,       -- Phím thoát POV về bản thân
-    ZoomInKey = Enum.KeyCode.Equals, -- Phím tăng khoảng cách ( + )
-    ZoomOutKey = Enum.KeyCode.Minus, -- Phím giảm khoảng cách ( - )
-    ZoomStep = 1,                   -- Bước tăng/giảm khoảng cách
-    MinDistance = 2,                -- Khoảng cách tối thiểu
-    MaxDistanceLimit = 20,          -- Khoảng cách tối đa (giới hạn cài đặt)
-    
-    -- Cài đặt nâng cao
-    RestoreOnExit = true,           -- Khôi phục camera gốc khi thoát
-    AllowWhileDead = false,         -- Cho phép xem khi bản thân đang chết
-    BlockUserInput = false,         -- Chặn input di chuyển của người chơi khi đang xem
-}
-
--- ==================== BIẾN TOÀN CỤC ====================
-local POVState = {
-    IsActive = false,
-    TargetPlayer = nil,
-    OriginalCameraSubject = nil,
-    OriginalCameraCFrame = nil,
-    OriginalHumanoidState = nil,
-    UpdateConnection = nil,
-    LastTargetPosition = nil,
-    LastCameraCFrame = nil,
-    ZoomConnection = nil,
-}
-
--- ==================== HÀM TIỆN ÍCH ====================
-local function GetCurrentTime()
-    return tick()
-end
-
-local function IsValidTarget(targetPlayer)
-    if not targetPlayer then return false end
-    if targetPlayer == player then return false end
-    
-    -- Kiểm tra bản thân còn sống (nếu cần)
-    if not POVConfig.AllowWhileDead then
-        local myChar = player.Character
-        local myHum = myChar and myChar:FindFirstChild("Humanoid")
-        if not myHum or myHum.Health <= 0 then
-            return false
-        end
-    end
-    
-    -- Kiểm tra target còn sống
-    local character = targetPlayer.Character
-    if not character then return false end
-    
-    local humanoid = character:FindFirstChild("Humanoid")
-    if not humanoid or humanoid.Health <= 0 then
-        return false
-    end
-    
-    -- Kiểm tra các bộ phận cần thiết
-    local root = character:FindFirstChild("HumanoidRootPart")
-    if not root then return false end
-    
-    -- Kiểm tra khoảng cách
-    if POVConfig.AutoStopOnTooFar then
-        local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-        if myRoot then
-            local distance = (myRoot.Position - root.Position).Magnitude
-            if distance > POVConfig.MaxDistance then
-                return false
+    -- Duyệt tool nhanh, chỉ lấy remote cần thiết
+    for _, tool in pairs(char:GetChildren()) do
+        if tool:IsA("Tool") then
+            -- ClickEvent phổ biến nhất
+            local clickEvent = tool:FindFirstChild("ClickEvent")
+            if clickEvent and clickEvent:IsA("RemoteEvent") then
+                clickEvent:FireServer()
+            end
+            -- Activate
+            local activate = tool:FindFirstChild("Activate")
+            if activate and activate:IsA("RemoteEvent") then
+                activate:FireServer()
+            end
+            -- Xử lý Handle + ClickDetector nhanh
+            local handle = tool:FindFirstChild("Handle")
+            if handle then
+                local detector = handle:FindFirstChild("ClickDetector")
+                if detector then
+                    detector:Click()
+                end
             end
         end
     end
-    
-    return true, character, humanoid, root
 end
 
-local function GetCameraOffset()
-    -- Tính toán offset dựa trên khoảng cách, độ cao, và offset tùy chỉnh
-    local offset = Vector3.new(
-        POVConfig.CameraOffset.X,
-        POVConfig.CameraHeight + POVConfig.CameraOffset.Y,
-        POVConfig.CameraDistance + POVConfig.CameraOffset.Z
-    )
-    return offset
-end
-
-local function CalculateCameraCFrame(targetRoot, targetHumanoid)
-    if not targetRoot then return nil end
-    
-    local targetPos = targetRoot.Position
-    local offset = GetCameraOffset()
-    
-    -- Tính toán hướng camera
-    local cameraCFrame
-    
-    if POVConfig.FollowRotation and targetHumanoid then
-        -- Lấy hướng mặt của target (dựa trên HumanoidRootPart hoặc Head)
-        local targetCFrame = targetRoot.CFrame
-        local lookVector = targetCFrame.LookVector
-        -- Tạo CFrame dựa trên vị trí target và hướng nhìn
-        local backOffset = -lookVector * offset.Z
-        local upOffset = Vector3.new(0, offset.Y, 0)
-        local rightOffset = targetCFrame.RightVector * offset.X
-        
-        local cameraPos = targetPos + backOffset + upOffset + rightOffset
-        cameraCFrame = CFrame.new(cameraPos, targetPos)
-    else
-        -- Camera cố định từ phía sau theo hướng cố định (góc nhìn thứ 3 mặc định)
-        local cameraPos = targetPos + Vector3.new(offset.X, offset.Y, offset.Z)
-        cameraCFrame = CFrame.new(cameraPos, targetPos)
-    end
-    
-    return cameraCFrame
-end
-
--- ==================== LƯU / KHÔI PHỤC CAMERA GỐC ====================
-local function SaveOriginalCamera()
-    local currentCamera = workspace.CurrentCamera
-    if not currentCamera then return end
-    
-    POVState.OriginalCameraSubject = currentCamera.CameraSubject
-    POVState.OriginalCameraCFrame = currentCamera.CFrame
-end
-
-local function RestoreOriginalCamera()
-    local currentCamera = workspace.CurrentCamera
-    if not currentCamera then return end
-    
-    if POVState.OriginalCameraSubject then
-        currentCamera.CameraSubject = POVState.OriginalCameraSubject
-    end
-    if POVState.OriginalCameraCFrame then
-        currentCamera.CFrame = POVState.OriginalCameraCFrame
-    end
-end
-
--- ==================== ĐIỀU KHIỂN CAMERA ====================
-local function UpdateCamera()
-    if not POVState.IsActive or not POVState.TargetPlayer then
-        return
-    end
-    
-    local isValid, character, humanoid, root = IsValidTarget(POVState.TargetPlayer)
-    if not isValid then
-        -- Dừng POV nếu target không hợp lệ
-        if POVConfig.AutoStopOnDeath or POVConfig.AutoStopOnTooFar or POVConfig.AutoStopOnLeave then
-            StopPOV()
-            if POVConfig.ShowStatus then
-                status.Text = "STATUS : POV STOPPED - Target lost"
-            end
+-- Vòng lặp click riêng (chạy ngầm, không ảnh hưởng FPS)
+local function clickLoop()
+    while isRunning do
+        local startTick = os.clock()
+        if autoClickerEnabled then
+            doClick()
         end
-        return
-    end
-    
-    -- Tính toán CFrame mới cho camera
-    local newCFrame = CalculateCameraCFrame(root, humanoid)
-    if not newCFrame then return end
-    
-    -- Áp dụng độ mượt
-    local currentCamera = workspace.CurrentCamera
-    if currentCamera then
-        if POVConfig.Smoothness > 0 and POVState.LastCameraCFrame then
-            local alpha = math.min(1, POVConfig.Smoothness)
-            local smoothCFrame = POVState.LastCameraCFrame:Lerp(newCFrame, alpha)
-            currentCamera.CFrame = smoothCFrame
-            POVState.LastCameraCFrame = smoothCFrame
+        local elapsed = os.clock() - startTick
+        local sleepTime = clickInterval - elapsed
+        if sleepTime > 0 then
+            task.wait(sleepTime)
         else
-            currentCamera.CFrame = newCFrame
-            POVState.LastCameraCFrame = newCFrame
-        end
-        
-        -- Đặt CameraSubject để game tự động theo dõi (nếu cần)
-        currentCamera.CameraSubject = humanoid
-    end
-    
-    -- Lưu vị trí target để debug
-    POVState.LastTargetPosition = root.Position
-end
-
--- ==================== BẮT ĐẦU / DỪNG POV ====================
-local function StartPOV(targetPlayer)
-    if not targetPlayer then return false end
-    
-    local isValid = IsValidTarget(targetPlayer)
-    if not isValid then
-        if POVConfig.ShowStatus then
-            status.Text = "STATUS : Cannot view " .. (targetPlayer.Name or "player")
-        end
-        return false
-    end
-    
-    -- Lưu camera gốc nếu chưa có
-    if POVConfig.RestoreOnExit and not POVState.IsActive then
-        SaveOriginalCamera()
-    end
-    
-    -- Chặn input người chơi nếu cấu hình
-    if POVConfig.BlockUserInput then
-        local myChar = player.Character
-        if myChar then
-            local myHum = myChar:FindFirstChild("Humanoid")
-            if myHum then
-                POVState.OriginalHumanoidState = myHum.AutoRotate
-                myHum.AutoRotate = false
-            end
-        end
-    end
-    
-    -- Thiết lập trạng thái
-    POVState.IsActive = true
-    POVState.TargetPlayer = targetPlayer
-    POVState.LastCameraCFrame = nil
-    
-    -- Cập nhật CameraSubject ngay lập tức
-    local character = targetPlayer.Character
-    if character then
-        local humanoid = character:FindFirstChild("Humanoid")
-        if humanoid then
-            workspace.CurrentCamera.CameraSubject = humanoid
-        end
-    end
-    
-    -- Hiển thị status
-    if POVConfig.ShowStatus then
-        status.Text = "STATUS : VIEWING " .. string.upper(targetPlayer.Name)
-    end
-    
-    -- Cập nhật nút GUI nếu có
-    if povBtn then
-        povBtn.Text = "POV PLAYER [ON]"
-        povBtn.BackgroundColor3 = Color3.fromRGB(100, 170, 220)
-    end
-    
-    return true
-end
-
-local function StopPOV()
-    if not POVState.IsActive then
-        return
-    end
-    
-    -- Khôi phục camera gốc
-    if POVConfig.RestoreOnExit then
-        RestoreOriginalCamera()
-    end
-    
-    -- Khôi phục input người chơi
-    if POVConfig.BlockUserInput and POVState.OriginalHumanoidState ~= nil then
-        local myChar = player.Character
-        if myChar then
-            local myHum = myChar:FindFirstChild("Humanoid")
-            if myHum then
-                myHum.AutoRotate = POVState.OriginalHumanoidState
-            end
-        end
-        POVState.OriginalHumanoidState = nil
-    end
-    
-    -- Reset trạng thái
-    POVState.IsActive = false
-    POVState.TargetPlayer = nil
-    POVState.LastCameraCFrame = nil
-    
-    -- Hiển thị status
-    if POVConfig.ShowStatus then
-        status.Text = "STATUS : READY"
-    end
-    
-    -- Cập nhật nút GUI
-    if povBtn then
-        povBtn.Text = "POV PLAYER"
-        povBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
-    end
-end
-
--- ==================== VÒNG LẶP CẬP NHẬT ====================
-local function StartPOVLoop()
-    if POVState.UpdateConnection then
-        POVState.UpdateConnection:Disconnect()
-    end
-    
-    POVState.UpdateConnection = RunService.RenderStepped:Connect(function()
-        if POVState.IsActive then
-            UpdateCamera()
-        end
-    end)
-end
-
-local function StopPOVLoop()
-    if POVState.UpdateConnection then
-        POVState.UpdateConnection:Disconnect()
-        POVState.UpdateConnection = nil
-    end
-end
-
--- ==================== PHÓNG TO / THU NHỎ KHOẢNG CÁCH ====================
-local function ZoomIn()
-    local newDist = POVConfig.CameraDistance - POVConfig.ZoomStep
-    if newDist >= POVConfig.MinDistance then
-        POVConfig.CameraDistance = newDist
-        if POVConfig.ShowStatus and POVState.IsActive then
-            status.Text = "STATUS : DISTANCE " .. string.format("%.1f", POVConfig.CameraDistance)
+            task.wait(0)  -- nhường thời gian thực thi
         end
     end
 end
 
-local function ZoomOut()
-    local newDist = POVConfig.CameraDistance + POVConfig.ZoomStep
-    if newDist <= POVConfig.MaxDistanceLimit then
-        POVConfig.CameraDistance = newDist
-        if POVConfig.ShowStatus and POVState.IsActive then
-            status.Text = "STATUS : DISTANCE " .. string.format("%.1f", POVConfig.CameraDistance)
-        end
+local function startClickThread()
+    if clickThread then return end
+    isRunning = true
+    clickThread = task.spawn(clickLoop)
+end
+
+local function stopClickThread()
+    isRunning = false
+    clickThread = nil
+end
+
+-- Cập nhật tốc độ
+local function updateCPS()
+    clickInterval = 1 / clickCPS
+    cpsLabel.Text = "CPS:" .. clickCPS
+    if autoClickerEnabled then
+        stopClickThread()
+        startClickThread()
     end
 end
 
--- ==================== THIẾT LẬP PHÍM TẮT ====================
-local function SetupPOVHotkeys()
-    UserInputService.InputBegan:Connect(function(input, gameProcessed)
-        if gameProcessed then return end
-        
-        -- Phím bật/tắt POV
-        if input.KeyCode == POVConfig.ToggleKey then
-            if POVState.IsActive then
-                StopPOV()
-            else
-                -- Nếu chưa active, cần có target để bắt đầu (sẽ được xử lý qua menu GUI)
-                -- Hoặc có thể tự động chọn người gần nhất?
-                if POVConfig.ShowStatus then
-                    status.Text = "STATUS : Select a player from menu"
-                end
-            end
-        end
-        
-        -- Phím thoát khẩn cấp
-        if input.KeyCode == POVConfig.ExitKey then
-            if POVState.IsActive then
-                StopPOV()
-            end
-        end
-        
-        -- Phóng to / thu nhỏ khi đang xem
-        if POVState.IsActive then
-            if input.KeyCode == POVConfig.ZoomInKey then
-                ZoomIn()
-            elseif input.KeyCode == POVConfig.ZoomOutKey then
-                ZoomOut()
-            end
-        end
-    end)
-end
+-- Tăng CPS
+incBtn.MouseButton1Click:Connect(function()
+    clickCPS = math.min(100, clickCPS + 5)
+    updateCPS()
+end)
 
--- ==================== XỬ LÝ SỰ KIỆN RESPAWN / RỜI GAME ====================
-local function OnPlayerRemoving(leavingPlayer)
-    if POVState.IsActive and POVState.TargetPlayer == leavingPlayer then
-        StopPOV()
-        if POVConfig.ShowStatus then
-            status.Text = "STATUS : Target left game"
-        end
-    end
-end
+-- Giảm CPS
+decBtn.MouseButton1Click:Connect(function()
+    clickCPS = math.max(10, clickCPS - 5)
+    updateCPS()
+end)
 
-local function OnCharacterAdded(character)
-    if POVState.IsActive and POVState.TargetPlayer then
-        -- Kiểm tra lại target có hợp lệ không sau khi respawn
-        task.wait(0.5)
-        local isValid, _, _, root = IsValidTarget(POVState.TargetPlayer)
-        if not isValid then
-            StopPOV()
-            if POVConfig.ShowStatus then
-                status.Text = "STATUS : Target died or too far"
-            end
-        end
-    end
-end
-
--- Đăng ký sự kiện
-Players.PlayerRemoving:Connect(OnPlayerRemoving)
-player.CharacterAdded:Connect(OnCharacterAdded)
-
--- ==================== TẠO MENU CHỌN NGƯỜI CHƠI ====================
-local povFrame = nil
-local povList = nil
-
-local function CreatePOVMenu()
-    povFrame = Instance.new("Frame")
-    povFrame.Parent = frame  -- frame là main GUI frame
-    povFrame.Size = UDim2.new(0, 200, 0, 300)
-    povFrame.Position = UDim2.new(1, 10, 0, 60)
-    povFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-    povFrame.BackgroundTransparency = 0.1
-    povFrame.BorderSizePixel = 0
-    povFrame.Visible = false
-    povFrame.Active = true
-    povFrame.Draggable = true
-    Instance.new("UICorner", povFrame).CornerRadius = UDim.new(0, 10)
-    
-    local title = Instance.new("TextLabel")
-    title.Parent = povFrame
-    title.Size = UDim2.new(1, 0, 0, 30)
-    title.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-    title.Text = "CHỌN NGƯỜI ĐỂ XEM"
-    title.TextColor3 = Color3.new(1, 1, 1)
-    title.Font = Enum.Font.GothamBold
-    title.TextSize = 12
-    
-    povList = Instance.new("ScrollingFrame")
-    povList.Parent = povFrame
-    povList.Size = UDim2.new(1, -10, 1, -40)
-    povList.Position = UDim2.new(0, 5, 0, 35)
-    povList.BackgroundTransparency = 1
-    povList.CanvasSize = UDim2.new(0, 0, 0, 0)
-    povList.ScrollBarThickness = 5
-    
-    local layout = Instance.new("UIListLayout")
-    layout.Parent = povList
-    layout.SortOrder = Enum.SortOrder.Name
-    layout.Padding = UDim.new(0, 5)
-end
-
-local function UpdatePlayerList()
-    if not povList then return end
-    
-    -- Xóa các nút cũ
-    for _, child in pairs(povList:GetChildren()) do
-        if child:IsA("TextButton") then
-            child:Destroy()
-        end
-    end
-    
-    local ySize = 0
-    for _, other in pairs(Players:GetPlayers()) do
-        if other ~= player then
-            local btn = Instance.new("TextButton")
-            btn.Size = UDim2.new(1, -10, 0, 35)
-            btn.Text = other.Name
-            btn.TextSize = 12
-            btn.Font = Enum.Font.Gotham
-            btn.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
-            btn.TextColor3 = Color3.new(1, 1, 1)
-            btn.BorderSizePixel = 0
-            btn.Parent = povList
-            Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
-            
-            btn.MouseButton1Click:Connect(function()
-                if StartPOV(other) then
-                    povFrame.Visible = false
-                    StartPOVLoop()
-                end
-            end)
-            
-            ySize = ySize + 40
-        end
-    end
-    povList.CanvasSize = UDim2.new(0, 0, 0, ySize)
-end
-
--- ==================== NÚT GUI POV ====================
-local povBtn = makeButton("POV PLAYER", 2, 1, Color3.fromRGB(80, 150, 200))
-povBtn.MouseButton1Click:Connect(function()
-    if POVState.IsActive then
-        StopPOV()
-        StopPOVLoop()
+-- Bật/tắt
+local function toggleAutoClicker()
+    autoClickerEnabled = not autoClickerEnabled
+    if autoClickerEnabled then
+        autoClickerBtn.Text = "AUTO CLICKER [ON]"
+        autoClickerBtn.BackgroundColor3 = Color3.fromRGB(230, 180, 70)
+        status.Text = "STATUS : AUTO CLICKER (" .. clickCPS .. " CPS)"
+        startClickThread()
     else
-        if not povFrame then
-            CreatePOVMenu()
-        end
-        UpdatePlayerList()
-        povFrame.Visible = not povFrame.Visible
+        autoClickerBtn.Text = "AUTO CLICKER"
+        autoClickerBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+        status.Text = "STATUS : READY"
+        stopClickThread()
     end
-end)
-
--- Cập nhật danh sách khi có người mới vào/ra
-Players.PlayerAdded:Connect(function()
-    if povFrame and povFrame.Visible then
-        UpdatePlayerList()
-    end
-end)
-
-Players.PlayerRemoving:Connect(function()
-    if povFrame and povFrame.Visible then
-        UpdatePlayerList()
-    end
-end)
-
--- ==================== KHỞI TẠO ====================
-local function InitializePOV()
-    SetupPOVHotkeys()
-    CreatePOVMenu()
-    print("[POV PLAYER] Đã khởi tạo thành công!")
-    print("   - Phím bật/tắt menu: Nhấn nút GUI")
-    print("   - Phím tắt bật/tắt (nếu có): " .. tostring(POVConfig.ToggleKey))
-    print("   - Phím thoát: " .. tostring(POVConfig.ExitKey))
-    print("   - Phóng to / thu nhỏ: " .. tostring(POVConfig.ZoomInKey) .. " / " .. tostring(POVConfig.ZoomOutKey))
 end
 
-InitializePOV()
---========================
+autoClickerBtn.MouseButton1Click:Connect(toggleAutoClicker)
+
+player.CharacterAdded:Connect(function()
+    if autoClickerEnabled then
+        stopClickThread()
+        startClickThread()
+    end
+end)======================
 -- SYSTEM: INFINITE JUMP PRO MAX
 -- Version: 4.0
 -- Tác giả: Sidbuddb
