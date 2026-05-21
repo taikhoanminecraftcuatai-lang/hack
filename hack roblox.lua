@@ -1685,112 +1685,111 @@ end
 
 InitializeInfiniteJump()
 --========================
--- DODGE (NE) - BAN MƯỢT (KHÔNG GIẬT)
+-- DODGE SIÊU NHẠY (PHẢN XẠ TỨC THÌ)
 --========================
--- Phát hiện người ngắm mình trong phạm vi, dùng TweenService để lướt sang hướng an toàn
---========================
-
 local dodgeEnabled = false
-local dodgeRange = 70
-local dodgeAngle = 30           -- góc nhìn thẳng vào bạn (độ)
-local dodgeDistance = 12        -- khoảng cách lướt (studs)
-local dodgeDuration = 0.2       -- thời gian lướt (giây)
-local dodgeCooldown = 1.2
-local lastDodgeTime = 0
+local dodgeRange = 85               -- phạm vi phát hiện (studs)
+local dodgeAngle = 28               -- góc nhìn vào bạn (độ)
+local dodgeDistance = 14            -- khoảng cách lướt
+local dodgeCooldown = 0.8           -- cooldown (giây) – giảm để né liên tục
+local lastDodge = 0
 local dodgeLoop = nil
+local currentTween = nil
 
 local dodgeBtn = makeButton("DODGE", 3, 1, Color3.fromRGB(255, 150, 50))
 
--- Helper: tính góc giữa hai vector
-local function angleBetween(v1, v2)
+-- Hàm tính góc chính xác
+local function getAngle(v1, v2)
     local dot = v1.X*v2.X + v1.Y*v2.Y + v1.Z*v2.Z
-    local m1 = math.sqrt(v1.X^2 + v1.Y^2 + v1.Z^2)
-    local m2 = math.sqrt(v2.X^2 + v2.Y^2 + v2.Z^2)
-    if m1*m2 == 0 then return 90 end
-    return math.acos(math.clamp(dot/(m1*m2), -1, 1)) * (180/math.pi)
+    local mag1 = math.sqrt(v1.X^2 + v1.Y^2 + v1.Z^2)
+    local mag2 = math.sqrt(v2.X^2 + v2.Y^2 + v2.Z^2)
+    if mag1*mag2 == 0 then return 90 end
+    return math.acos(math.clamp(dot/(mag1*mag2), -1, 1)) * (180/math.pi)
 end
 
--- Hướng né thông minh: tránh tường, không bị đẩy vào vật cản
-local function getSafeDodgeDirection(myRoot, attackerRoot)
-    local forward = (myRoot.Position - attackerRoot.Position).Unit
-    -- Chọn hướng vuông góc (trái/phải) so với attacker
-    local right = Vector3.new(-forward.Z, 0, forward.X).Unit
-    local directions = { right, -right, Vector3.new(0,0,1), Vector3.new(0,0,-1) }
-    local bestDir = right
-    local bestDist = 0
-    
-    for _, dir in ipairs(directions) do
-        local hitPos, dist = workspace:FindPartOnRayWithIgnoreList(Ray.new(myRoot.Position, dir * dodgeDistance), {myRoot.Parent}, false)
-        if not hitPos then
-            bestDir = dir
-            break
-        elseif dist > bestDist then
-            bestDist = dist
-            bestDir = dir
-        end
-    end
-    return bestDir
+-- Lấy hướng né (ưu tiên trái/phải so với attacker)
+local function getDodgeDirection(attackerRoot, myRoot)
+    local dirToAttacker = (attackerRoot.Position - myRoot.Position).Unit
+    -- Hướng vuông góc (trái / phải) – đây là hướng an toàn nhất để thoát khỏi tầm ngắm
+    local right = Vector3.new(-dirToAttacker.Z, 0, dirToAttacker.X).Unit
+    return right
 end
 
--- Thực hiện né mượt (Tween)
-local function smoothDodge(direction)
+-- Kiểm tra một người có đang ngắm bạn không
+local function isAimingAtMe(player)
+    local char = player.Character
+    if not char then return false end
+    local lookPart = char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
+    if not lookPart then return false end
+    local lookDir = lookPart.CFrame.LookVector
+
+    local myChar = player.Character
+    if not myChar then return false end
+    local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return false end
+
+    local toMe = (myRoot.Position - lookPart.Position).Unit
+    local angle = getAngle(lookDir, toMe)
+    if angle > dodgeAngle then return false end
+
+    local dist = (myRoot.Position - lookPart.Position).Magnitude
+    return dist <= dodgeRange
+end
+
+-- Né siêu mượt (kết hợp BodyVelocity + Tween để không bị giật)
+local function performDodge(direction)
     local char = player.Character
     if not char then return end
     local root = char:FindFirstChild("HumanoidRootPart")
     if not root then return end
     local hum = char:FindFirstChild("Humanoid")
-    if hum then hum.AutoRotate = false end  -- tạm khóa xoay để không bị giật
-    
+    if hum then hum.AutoRotate = false end
+
     local targetPos = root.Position + direction * dodgeDistance
-    local tween = TweenService:Create(root, TweenInfo.new(dodgeDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {CFrame = CFrame.new(targetPos)})
-    tween:Play()
-    tween.Completed:Wait()
-    
+
+    -- Dùng BodyVelocity để tạo đà mượt
+    local bv = Instance.new("BodyVelocity")
+    bv.MaxForce = Vector3.new(1,1,1) * 5000
+    bv.Velocity = direction * (dodgeDistance / 0.08)  -- tốc độ rất nhanh
+    bv.Parent = root
+
+    -- Tween để đảm bảo vị trí cuối chính xác (không bị trôi)
+    if currentTween and currentTween.PlaybackState ~= Enum.PlaybackState.Completed then
+        currentTween:Cancel()
+    end
+    currentTween = TweenService:Create(root, TweenInfo.new(0.08, Enum.EasingStyle.Linear), {CFrame = CFrame.new(targetPos)})
+    currentTween:Play()
+    currentTween.Completed:Wait()
+
+    bv:Destroy()
     if hum then hum.AutoRotate = true end
 end
 
--- Kiểm tra người đang ngắm mình
-local function isAimingAtMe(attacker)
-    local attackerChar = attacker.Character
-    if not attackerChar then return false end
-    local lookPart = attackerChar:FindFirstChild("Head") or attackerChar:FindFirstChild("HumanoidRootPart")
-    if not lookPart then return false end
-    local lookDir = lookPart.CFrame.LookVector
-    
-    local myChar = player.Character
-    if not myChar then return false end
-    local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-    if not myRoot then return false end
-    
-    local toMe = (myRoot.Position - lookPart.Position).Unit
-    local angle = angleBetween(lookDir, toMe)
-    if angle > dodgeAngle then return false end
-    
-    local dist = (myRoot.Position - lookPart.Position).Magnitude
-    return dist <= dodgeRange
-end
-
--- Vòng lặp chính
+-- Vòng lặp phát hiện
 local function dodgeUpdate()
     if not dodgeEnabled then return end
     local now = tick()
-    if now - lastDodgeTime < dodgeCooldown then return end
-    
+    if now - lastDodge < dodgeCooldown then return end
+
     for _, other in pairs(Players:GetPlayers()) do
         if other ~= player and isAimingAtMe(other) then
-            local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-            local otherRoot = other.Character and other.Character:FindFirstChild("HumanoidRootPart")
-            if myRoot and otherRoot then
-                local dir = getSafeDodgeDirection(myRoot, otherRoot)
-                smoothDodge(dir)
-                lastDodgeTime = now
-                break
+            local myChar = player.Character
+            local otherChar = other.Character
+            if myChar and otherChar then
+                local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+                local otherRoot = otherChar:FindFirstChild("HumanoidRootPart")
+                if myRoot and otherRoot then
+                    local dir = getDodgeDirection(otherRoot, myRoot)
+                    performDodge(dir)
+                    lastDodge = now
+                    break
+                end
             end
         end
     end
 end
 
-local function startDodge()
+local function startDodgeLoop()
     if dodgeLoop then dodgeLoop:Disconnect() end
     dodgeLoop = RunService.RenderStepped:Connect(dodgeUpdate)
 end
@@ -1798,7 +1797,7 @@ end
 local function toggleDodge()
     dodgeEnabled = not dodgeEnabled
     if dodgeEnabled then
-        startDodge()
+        startDodgeLoop()
         dodgeBtn.Text = "DODGE [ON]"
         dodgeBtn.BackgroundColor3 = Color3.fromRGB(255, 180, 80)
         status.Text = "STATUS : DODGE ACTIVE"
@@ -1813,9 +1812,9 @@ end
 dodgeBtn.MouseButton1Click:Connect(toggleDodge)
 
 player.CharacterAdded:Connect(function()
-    lastDodgeTime = 0
+    lastDodge = 0
     if dodgeEnabled then
         if dodgeLoop then dodgeLoop:Disconnect() end
-        startDodge()
+        startDodgeLoop()
     end
 end)
