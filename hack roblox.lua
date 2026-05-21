@@ -566,10 +566,10 @@ print("[AIM LOCK PRO MAX] Đã sẵn sàng")
 print("   - Ưu tiên: " .. AimLockConfig.PriorityMode)
 print("   - Khoảng cách: " .. AimLockConfig.MaxDistance)
 print("   - Phím bật/tắt: " .. tostring(AimLockConfig.ToggleKey))
-print("   - Phím tăng/giảm khoảng cách: ] / [")--========================
--- SYSTEM: ESP PLAYER PRO MAX (KHÔNG GOTO)
+print("   - Phím tăng/giảm khoảng cách: ] / [")
 --========================
-
+-- ESP PLAYER PRO MAX (KHÔNG GOTO)
+--========================
 local espEnabled = false
 local espObjects = {}
 local espBtn = makeButton("ESP PLAYER", 1, 2, Color3.fromRGB(50, 100, 150))
@@ -612,9 +612,10 @@ local function isValidTarget(targetPlayer)
 end
 
 local function createESP(targetPlayer)
-    if espObjects[targetPlayer] then
-        if espObjects[targetPlayer].billboard then espObjects[targetPlayer].billboard:Destroy() end
-        if espObjects[targetPlayer].box then espObjects[targetPlayer].box:Destroy() end
+    local old = espObjects[targetPlayer]
+    if old then
+        if old.billboard then pcall(function() old.billboard:Destroy() end) end
+        if old.box then pcall(function() old.box:Destroy() end) end
         espObjects[targetPlayer] = nil
     end
 
@@ -702,7 +703,8 @@ local function createESP(targetPlayer)
         healthBarFill = healthBarFill,
         humanoid = hum,
         root = root,
-        nameLabel = nameLabel
+        nameLabel = nameLabel,
+        character = char
     }
     return true
 end
@@ -806,7 +808,9 @@ end)
 
 player.CharacterAdded:Connect(function()
     if espEnabled then task.wait(1) createAllESP() end
-end)--========================
+end)
+end)
+--========================
 -- AUTO CLICKER SIÊU NHANH (LÊN TỚI 100 CPS)
 --========================
 local autoClickerEnabled = false
