@@ -179,65 +179,54 @@ local function makeButton(text, row, col, color)
 end
 --========================
 -- SYSTEM: AIM LOCK PRO MAX
--- Version: 4.0
+-- Version: 5.0
 -- Tác giả: Sidbuddb
--- Mô tả: Tự động xoay camera vào đầu người chơi gần nhất
--- Tối ưu: Không rung, không lag, xử lý lỗi triệt để
+-- Mô tả: Tự động xoay camera vào đầu người chơi gần nhất hoặc ít máu nhất, nhiều tùy chỉnh
 --========================
 
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
 
 -- ==================== CẤU HÌNH AIM LOCK ====================
 local AimLockConfig = {
-    -- Cài đặt cơ bản
     Enabled = false,
-    MaxDistance = 300,              -- Khoảng cách tối đa (studs)
-    UpdateRate = 0.01,              -- Tốc độ cập nhật (giây)
-    Priority = "Closest",           -- Ưu tiên: "Closest" hoặc "LowestHealth"
-    AimPart = "Head",               -- Bộ phận aim: "Head", "UpperTorso", "HumanoidRootPart"
-    
-    -- Cài đặt camera
-    LockSmoothness = 0,             -- 0 = lock cứng, 1-10 = lock mượt
+    MaxDistance = 250,              -- Khoảng cách tối đa (studs)
+    PriorityMode = "Closest",       -- "Closest" hoặc "LowestHealth"
+    AimPart = "Head",               -- "Head", "UpperTorso", "HumanoidRootPart"
+    LockSmoothness = 0,             -- 0 = cứng, 1-10 = mượt
+    SmoothnessSpeed = 5,            -- Tốc độ mượt (nếu LockSmoothness > 0)
     VerticalOffset = 0,             -- Độ lệch dọc (studs)
     HorizontalOffset = 0,           -- Độ lệch ngang (studs)
-    
-    -- Cài đặt phím tắt
+    CheckLineOfSight = false,       -- Chỉ aim nếu không bị vật cản
+    AutoSwitchTarget = true,        -- Tự chuyển khi target chết
+    RequireTool = false,            -- Chỉ aim khi cầm tool
+    AllowedTools = {},              -- Tên tool được phép
+    IgnoreTeam = false,             -- Bỏ qua đồng đội
+    TeamCheck = false,              -- Bật để dùng team color
+    TargetTeamColor = nil,          -- Màu team cần aim (nếu có)
+    ShowDebug = false,              -- In thông tin debug ra console
+    ShowDistance = false,           -- Hiển thị khoảng cách trên status
+    ShowTargetName = false,         -- Hiển thị tên target trên status
     ToggleKey = Enum.KeyCode.K,     -- Phím bật/tắt
-    ToggleKeyModifier = nil,        -- Phím kết hợp (Shift, Ctrl, Alt)
-    
-    -- Cài đặt hiển thị
-    ShowDistance = false,           -- Hiển thị khoảng cách tới mục tiêu
-    ShowTargetName = false,         -- Hiển thị tên mục tiêu
-    ShowNotifications = true,       -- Hiển thị thông báo khi bật/tắt
-    
-    -- Cài đặt nâng cao
-    IgnoreTeam = false,             -- Bỏ qua đồng đội (nếu game có team)
-    IgnoreFriends = false,          -- Bỏ qua bạn bè
-    AutoSwitchTarget = true,        -- Tự động chuyển mục tiêu khi target chết
-    CheckLineOfSight = false,       -- Kiểm tra xem có vật cản không
-    RequireToolEquipped = false,    -- Chỉ aim khi đang cầm tool
-    AllowedTools = {},              -- Danh sách tool được phép aim (để trống là tất cả)
-    
-    -- Cài đặt thời gian
-    TargetTimeout = 3.0,            -- Thời gian mất target nếu không thấy (giây)
-    CooldownOnSwitch = 0.2,         -- Thời gian chờ khi chuyển mục tiêu (giây)
+    IncreaseDistanceKey = Enum.KeyCode.RightBracket,   -- Tăng khoảng cách tối đa
+    DecreaseDistanceKey = Enum.KeyCode.LeftBracket,    -- Giảm khoảng cách tối đa
+    DistanceStep = 10,              -- Bước tăng/giảm
+    MinDistance = 50,
+    MaxDistanceLimit = 500,
 }
 
 -- ==================== BIẾN TOÀN CỤC ====================
-local AimState = {
-    IsRunning = false,
+local AimLockState = {
+    IsActive = false,
     CurrentTarget = nil,
     LastTarget = nil,
-    TargetSwitchTime = 0,
-    LastUpdateTime = 0,
-    LastDistance = 0,
-    FailedAttempts = 0,
     LockConnection = nil,
+    LastUpdateTime = 0,
+    FrameCounter = 0,
+    DebugInfo = "",
 }
 
 -- ==================== HÀM TIỆN ÍCH ====================
@@ -245,428 +234,339 @@ local function GetCurrentTime()
     return tick()
 end
 
-local function IsPlayerValid(targetPlayer)
-    -- Kiểm tra cơ bản
-    if not targetPlayer then return false end
-    if targetPlayer == player then return false end
-    
-    -- Kiểm tra đồng đội
-    if AimLockConfig.IgnoreTeam and targetPlayer.Team and player.Team and targetPlayer.Team == player.Team then
-        return false
-    end
-    
-    -- Kiểm tra bạn bè
-    if AimLockConfig.IgnoreFriends then
-        local isFriend = false
-        for _, friendId in pairs(player.Friends:GetFriends()) do
-            if friendId == targetPlayer.UserId then
-                isFriend = true
-                break
+local function GetDistance(pointA, pointB)
+    return (pointA - pointB).Magnitude
+end
+
+local function GetHealthPercent(humanoid)
+    if not humanoid then return 0 end
+    return (humanoid.Health / humanoid.MaxHealth) * 100
+end
+
+-- Kiểm tra tool
+local function HasRequiredTool()
+    if not AimLockConfig.RequireTool then return true end
+    local char = player.Character
+    if not char then return false end
+    for _, tool in pairs(char:GetChildren()) do
+        if tool:IsA("Tool") then
+            if #AimLockConfig.AllowedTools == 0 then return true end
+            for _, allowed in pairs(AimLockConfig.AllowedTools) do
+                if tool.Name:lower():find(allowed:lower()) then return true end
             end
         end
-        if isFriend then return false end
     end
-    
-    -- Kiểm tra nhân vật
-    local character = targetPlayer.Character
-    if not character then return false end
-    
-    -- Kiểm tra Humanoid
-    local humanoid = character:FindFirstChild("Humanoid")
-    if not humanoid then return false end
-    if humanoid.Health <= 0 then return false end
-    
-    -- Kiểm tra bộ phận aim
-    local aimPart = character:FindFirstChild(AimLockConfig.AimPart)
-    if not aimPart then
-        aimPart = character:FindFirstChild("Head") or character:FindFirstChild("UpperTorso") or character:FindFirstChild("HumanoidRootPart")
-        if not aimPart then return false end
-    end
-    
-    return true, humanoid, aimPart
+    return false
 end
 
-local function GetDistanceBetweenPlayers(player1, player2)
-    local char1 = player1.Character
-    local char2 = player2.Character
-    if not char1 or not char2 then return math.huge end
-    
-    local root1 = char1:FindFirstChild("HumanoidRootPart")
-    local root2 = char2:FindFirstChild("HumanoidRootPart")
-    if not root1 or not root2 then return math.huge end
-    
-    return (root1.Position - root2.Position).Magnitude
+-- Kiểm tra team
+local function IsValidTeam(targetPlayer)
+    if not AimLockConfig.IgnoreTeam then return true end
+    if not player.Team or not targetPlayer.Team then return true end
+    if AimLockConfig.TeamCheck then
+        return targetPlayer.Team == AimLockConfig.TargetTeamColor
+    end
+    return targetPlayer.Team ~= player.Team
 end
 
-local function CheckLineOfSight(targetPosition)
+-- Kiểm tra line of sight (vật cản)
+local function HasLineOfSight(targetPosition)
+    if not AimLockConfig.CheckLineOfSight then return true end
     local camera = workspace.CurrentCamera
     if not camera then return true end
-    
     local origin = camera.CFrame.Position
     local direction = (targetPosition - origin).Unit
     local raycastParams = RaycastParams.new()
     raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
     raycastParams.FilterDescendantsInstances = {player.Character, workspace.CurrentCamera}
-    
-    local raycastResult = workspace:Raycast(origin, direction * AimLockConfig.MaxDistance, raycastParams)
-    
-    if raycastResult then
-        local hitDistance = (origin - raycastResult.Position).Magnitude
-        local targetDistance = (origin - targetPosition).Magnitude
-        return hitDistance >= targetDistance - 2
+    local result = workspace:Raycast(origin, direction * AimLockConfig.MaxDistance, raycastParams)
+    if result then
+        local hitDist = GetDistance(origin, result.Position)
+        local targetDist = GetDistance(origin, targetPosition)
+        return hitDist >= targetDist - 2
     end
-    
     return true
 end
 
--- ==================== HÀM TÌM MỤC TIÊU ====================
-local function FindClosestPlayer()
-    local myCharacter = player.Character
-    if not myCharacter then return nil, math.huge end
+-- Lấy vị trí cần aim (dựa trên AimPart)
+local function GetAimPosition(character)
+    if not character then return nil end
+    local part = character:FindFirstChild(AimLockConfig.AimPart)
+    if not part then
+        part = character:FindFirstChild("Head") or 
+               character:FindFirstChild("UpperTorso") or 
+               character:FindFirstChild("HumanoidRootPart")
+    end
+    if part and part:IsA("BasePart") then
+        return part.Position + Vector3.new(AimLockConfig.HorizontalOffset, AimLockConfig.VerticalOffset, 0)
+    end
+    return nil
+end
+
+-- Kiểm tra target có hợp lệ không
+local function IsValidTarget(targetPlayer)
+    if not targetPlayer or targetPlayer == player then return false end
+    if not IsValidTeam(targetPlayer) then return false end
+    local character = targetPlayer.Character
+    if not character then return false end
+    local humanoid = character:FindFirstChild("Humanoid")
+    if not humanoid or humanoid.Health <= 0 then return false end
+    local aimPos = GetAimPosition(character)
+    if not aimPos then return false end
+    if not HasLineOfSight(aimPos) then return false end
+    return true, humanoid, character, aimPos
+end
+
+-- Tìm mục tiêu theo chế độ
+local function FindBestTarget()
+    if not HasRequiredTool() then return nil, nil end
     
-    local myRoot = myCharacter:FindFirstChild("HumanoidRootPart")
-    if not myRoot then return nil, math.huge end
+    local myChar = player.Character
+    if not myChar then return nil, nil end
+    local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return nil, nil end
+    local myPos = myRoot.Position
     
-    local closestTarget = nil
-    local closestDistance = AimLockConfig.MaxDistance + 1
-    local myPosition = myRoot.Position
+    local bestTarget = nil
+    local bestValue = (AimLockConfig.PriorityMode == "Closest") and (AimLockConfig.MaxDistance + 1) or 101
+    local bestDistance = AimLockConfig.MaxDistance + 1
+    local bestHealth = 101
     
-    -- Kiểm tra tool nếu cần
-    if AimLockConfig.RequireToolEquipped then
-        local hasTool = false
-        for _, tool in pairs(myCharacter:GetChildren()) do
-            if tool:IsA("Tool") then
-                if #AimLockConfig.AllowedTools == 0 then
-                    hasTool = true
-                    break
-                else
-                    for _, allowed in pairs(AimLockConfig.AllowedTools) do
-                        if tool.Name:lower():find(allowed:lower()) then
-                            hasTool = true
-                            break
+    for _, other in pairs(Players:GetPlayers()) do
+        if other ~= player then
+            local isValid = IsValidTarget(other)
+            if isValid then
+                local character = other.Character
+                local root = character:FindFirstChild("HumanoidRootPart")
+                if root then
+                    local distance = GetDistance(myPos, root.Position)
+                    if distance <= AimLockConfig.MaxDistance then
+                        local humanoid = character:FindFirstChild("Humanoid")
+                        local healthPercent = GetHealthPercent(humanoid)
+                        
+                        if AimLockConfig.PriorityMode == "Closest" then
+                            if distance < bestValue then
+                                bestValue = distance
+                                bestTarget = other
+                                bestDistance = distance
+                                bestHealth = healthPercent
+                            end
+                        else -- LowestHealth
+                            if healthPercent < bestValue then
+                                bestValue = healthPercent
+                                bestTarget = other
+                                bestDistance = distance
+                                bestHealth = healthPercent
+                            elseif healthPercent == bestValue and distance < bestDistance then
+                                bestTarget = other
+                                bestDistance = distance
+                            end
                         end
                     end
                 end
             end
         end
-        if not hasTool then return nil, math.huge end
     end
     
-    for _, otherPlayer in pairs(Players:GetPlayers()) do
-        local isValid, humanoid, aimPart = IsPlayerValid(otherPlayer)
-        if isValid and aimPart then
-            local distance = (myPosition - aimPart.Position).Magnitude
-            if distance < closestDistance and distance <= AimLockConfig.MaxDistance then
-                if AimLockConfig.CheckLineOfSight then
-                    if CheckLineOfSight(aimPart.Position) then
-                        closestDistance = distance
-                        closestTarget = otherPlayer
-                    end
-                else
-                    closestDistance = distance
-                    closestTarget = otherPlayer
-                end
-            end
+    if bestTarget then
+        if AimLockConfig.ShowDebug then
+            print(string.format("[AIM] Target: %s | Distance: %.1f | Health: %.1f%%", 
+                  bestTarget.Name, bestDistance, bestHealth))
         end
+        return bestTarget, bestDistance
     end
-    
-    return closestTarget, closestDistance
+    return nil, nil
 end
 
-local function FindLowestHealthPlayer()
-    local lowestHealthTarget = nil
-    local lowestHealth = 101
-    local closestDistance = AimLockConfig.MaxDistance + 1
-    local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-    
-    if not myRoot then return nil, math.huge end
-    
-    for _, otherPlayer in pairs(Players:GetPlayers()) do
-        local isValid, humanoid, aimPart = IsPlayerValid(otherPlayer)
-        if isValid and humanoid then
-            local distance = (myRoot.Position - aimPart.Position).Magnitude
-            if distance <= AimLockConfig.MaxDistance then
-                local healthPercent = (humanoid.Health / humanoid.MaxHealth) * 100
-                if healthPercent < lowestHealth then
-                    lowestHealth = healthPercent
-                    lowestHealthTarget = otherPlayer
-                    closestDistance = distance
-                elseif healthPercent == lowestHealth and distance < closestDistance then
-                    lowestHealthTarget = otherPlayer
-                    closestDistance = distance
-                end
-            end
-        end
-    end
-    
-    return lowestHealthTarget, closestDistance
-end
-
-local function FindTarget()
-    if AimLockConfig.Priority == "Closest" then
-        return FindClosestPlayer()
-    elseif AimLockConfig.Priority == "LowestHealth" then
-        return FindLowestHealthPlayer()
-    end
-    return FindClosestPlayer()
-end
-
--- ==================== HÀM LOCK CAMERA ====================
-local function GetAimPosition(targetPlayer)
-    if not targetPlayer or not targetPlayer.Character then return nil end
-    
-    local aimPart = targetPlayer.Character:FindFirstChild(AimLockConfig.AimPart)
-    if not aimPart then
-        aimPart = targetPlayer.Character:FindFirstChild("Head") or 
-                  targetPlayer.Character:FindFirstChild("UpperTorso") or 
-                  targetPlayer.Character:FindFirstChild("HumanoidRootPart")
-    end
-    
-    if not aimPart then return nil end
-    
-    local position = aimPart.Position
-    position = position + Vector3.new(AimLockConfig.HorizontalOffset, AimLockConfig.VerticalOffset, 0)
-    
-    return position
-end
-
+-- ==================== LOCK CAMERA ====================
 local function LockCameraHard(targetPosition)
     local camera = workspace.CurrentCamera
     if not camera or not targetPosition then return false end
-    
     local cameraPos = camera.CFrame.Position
-    local newCFrame = CFrame.new(cameraPos, targetPosition)
-    camera.CFrame = newCFrame
-    
+    camera.CFrame = CFrame.new(cameraPos, targetPosition)
     return true
 end
 
-local function LockCameraSmooth(targetPosition, smoothness)
+local function LockCameraSmooth(targetPosition)
     local camera = workspace.CurrentCamera
     if not camera or not targetPosition then return false end
-    
-    local currentCFrame = camera.CFrame
-    local targetCFrame = CFrame.new(currentCFrame.Position, targetPosition)
-    
-    local alpha = math.min(1, smoothness or (AimLockConfig.LockSmoothness / 10))
-    local newCFrame = currentCFrame:Lerp(targetCFrame, alpha)
-    camera.CFrame = newCFrame
-    
+    local currentCF = camera.CFrame
+    local targetCF = CFrame.new(currentCF.Position, targetPosition)
+    local alpha = math.min(1, AimLockConfig.SmoothnessSpeed / 10)
+    camera.CFrame = currentCF:Lerp(targetCF, alpha)
     return true
 end
 
-local function LockCamera(targetPlayer)
+local function LockOntoTarget(targetPlayer)
     if not targetPlayer then return false end
-    
-    local aimPosition = GetAimPosition(targetPlayer)
-    if not aimPosition then return false end
+    local character = targetPlayer.Character
+    if not character then return false end
+    local aimPos = GetAimPosition(character)
+    if not aimPos then return false end
     
     if AimLockConfig.LockSmoothness <= 0 then
-        return LockCameraHard(aimPosition)
+        return LockCameraHard(aimPos)
     else
-        return LockCameraSmooth(aimPosition)
-    end
-end
-
--- ==================== HÀM XỬ LÝ TRẠNG THÁI ====================
-local function UpdateAimState()
-    local currentTime = GetCurrentTime()
-    
-    -- Kiểm tra thời gian cooldown
-    if currentTime - AimState.TargetSwitchTime < AimLockConfig.CooldownOnSwitch then
-        return
-    end
-    
-    -- Tìm mục tiêu mới
-    local newTarget, distance = FindTarget()
-    
-    -- Kiểm tra xem có nên chuyển mục tiêu không
-    local shouldSwitch = false
-    
-    if not AimState.CurrentTarget then
-        shouldSwitch = true
-    elseif not IsPlayerValid(AimState.CurrentTarget) then
-        shouldSwitch = true
-    elseif AimLockConfig.AutoSwitchTarget then
-        local currentDistance = GetDistanceBetweenPlayers(player, AimState.CurrentTarget)
-        if distance < currentDistance - 20 then
-            shouldSwitch = true
-        end
-    end
-    
-    if shouldSwitch and newTarget then
-        AimState.LastTarget = AimState.CurrentTarget
-        AimState.CurrentTarget = newTarget
-        AimState.TargetSwitchTime = currentTime
-        AimState.LastDistance = distance
-        
-        if AimLockConfig.ShowTargetName then
-            status.Text = "AIMING: " .. newTarget.Name
-        end
-    end
-    
-    -- Thực hiện lock
-    if AimState.CurrentTarget and IsPlayerValid(AimState.CurrentTarget) then
-        LockCamera(AimState.CurrentTarget)
-        AimState.FailedAttempts = 0
-        
-        if AimLockConfig.ShowDistance then
-            local currentDistance = GetDistanceBetweenPlayers(player, AimState.CurrentTarget)
-            if currentDistance ~= AimState.LastDistance then
-                -- Có thể cập nhật hiển thị ở đây
-            end
-        end
-    else
-        AimState.CurrentTarget = nil
-        AimState.FailedAttempts = AimState.FailedAttempts + 1
+        return LockCameraSmooth(aimPos)
     end
 end
 
 -- ==================== VÒNG LẶP CHÍNH ====================
-local function StartAimLockLoop()
-    if AimState.LockConnection then
-        AimState.LockConnection:Disconnect()
-        AimState.LockConnection = nil
+local function AimLockUpdate()
+    if not AimLockState.IsActive then return end
+    
+    -- Kiểm tra target hiện tại còn hợp lệ không
+    local targetValid = false
+    if AimLockState.CurrentTarget then
+        targetValid = IsValidTarget(AimLockState.CurrentTarget)
     end
     
-    AimState.LockConnection = RunService.RenderStepped:Connect(function()
-        if AimLockConfig.Enabled then
-            UpdateAimState()
+    -- Nếu target không hợp lệ hoặc tự động chuyển, tìm target mới
+    if not targetValid or (AimLockConfig.AutoSwitchTarget and AimLockState.CurrentTarget) then
+        local newTarget, distance = FindBestTarget()
+        if newTarget then
+            AimLockState.CurrentTarget = newTarget
+            if AimLockConfig.ShowTargetName then
+                status.Text = "AIMING: " .. newTarget.Name
+            elseif AimLockConfig.ShowDistance then
+                status.Text = string.format("DISTANCE: %.1f m", distance)
+            end
+        else
+            AimLockState.CurrentTarget = nil
+            if AimLockConfig.ShowTargetName or AimLockConfig.ShowDistance then
+                status.Text = "AIM LOCK: NO TARGET"
+            end
+        end
+    end
+    
+    -- Lock vào target
+    if AimLockState.CurrentTarget then
+        LockOntoTarget(AimLockState.CurrentTarget)
+    end
+end
+
+-- Khởi động vòng lặp
+local function StartAimLock()
+    if AimLockState.LockConnection then
+        AimLockState.LockConnection:Disconnect()
+    end
+    AimLockState.LockConnection = RunService.RenderStepped:Connect(AimLockUpdate)
+end
+
+local function StopAimLock()
+    if AimLockState.LockConnection then
+        AimLockState.LockConnection:Disconnect()
+        AimLockState.LockConnection = nil
+    end
+    AimLockState.CurrentTarget = nil
+end
+
+-- ==================== ĐIỀU KHIỂN PHÍM TẮT ====================
+local function SetupHotkeys()
+    UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        
+        -- Phím bật/tắt
+        if input.KeyCode == AimLockConfig.ToggleKey then
+            ToggleAimLock()
+        end
+        
+        -- Phím tăng khoảng cách tối đa
+        if input.KeyCode == AimLockConfig.IncreaseDistanceKey then
+            local newDist = math.min(AimLockConfig.MaxDistanceLimit, AimLockConfig.MaxDistance + AimLockConfig.DistanceStep)
+            AimLockConfig.MaxDistance = newDist
+            if AimLockState.IsActive then
+                status.Text = "MAX DISTANCE: " .. newDist
+                task.wait(1)
+                if AimLockState.IsActive and AimLockState.CurrentTarget then
+                    status.Text = "AIMING: " .. (AimLockState.CurrentTarget.Name or "?")
+                end
+            end
+        end
+        
+        -- Phím giảm khoảng cách tối đa
+        if input.KeyCode == AimLockConfig.DecreaseDistanceKey then
+            local newDist = math.max(AimLockConfig.MinDistance, AimLockConfig.MaxDistance - AimLockConfig.DistanceStep)
+            AimLockConfig.MaxDistance = newDist
+            if AimLockState.IsActive then
+                status.Text = "MAX DISTANCE: " .. newDist
+                task.wait(1)
+                if AimLockState.IsActive and AimLockState.CurrentTarget then
+                    status.Text = "AIMING: " .. (AimLockState.CurrentTarget.Name or "?")
+                end
+            end
         end
     end)
 end
 
-local function StopAimLockLoop()
-    if AimState.LockConnection then
-        AimState.LockConnection:Disconnect()
-        AimState.LockConnection = nil
-    end
-end
-
--- ==================== HÀM BẬT/TẮT ====================
-local function ShowNotification(message, isError)
-    if not AimLockConfig.ShowNotifications then return end
-    
+-- ==================== BẬT / TẮT ====================
+local function ShowNotification(message, isSuccess)
     local notif = Instance.new("TextLabel")
     notif.Parent = game.CoreGui
     notif.Size = UDim2.new(0, 250, 0, 40)
     notif.Position = UDim2.new(0.5, -125, 0.85, 0)
-    notif.BackgroundColor3 = isError and Color3.fromRGB(80, 0, 0) or Color3.fromRGB(0, 0, 0)
+    notif.BackgroundColor3 = isSuccess and Color3.fromRGB(0, 0, 0) or Color3.fromRGB(80, 0, 0)
     notif.BackgroundTransparency = 0.3
-    notif.TextColor3 = isError and Color3.fromRGB(255, 100, 100) or Color3.fromRGB(100, 255, 100)
+    notif.TextColor3 = isSuccess and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 100, 100)
     notif.Font = Enum.Font.GothamBold
     notif.TextSize = 14
     notif.Text = message
     notif.TextStrokeTransparency = 0.3
     Instance.new("UICorner", notif).CornerRadius = UDim.new(0, 8)
-    
-    task.wait(2)
+    task.wait(1.5)
     notif:Destroy()
 end
 
 local function ToggleAimLock()
-    AimLockConfig.Enabled = not AimLockConfig.Enabled
+    AimLockState.IsActive = not AimLockState.IsActive
     
-    if AimLockConfig.Enabled then
-        StartAimLockLoop()
-        ShowNotification("AIM LOCK: BẬT - Khoảng cách: " .. AimLockConfig.MaxDistance .. " studs")
-        status.Text = "STATUS : AIM LOCK ACTIVE"
-    else
-        StopAimLockLoop()
-        AimState.CurrentTarget = nil
-        ShowNotification("AIM LOCK: TẮT")
-        status.Text = "STATUS : READY"
-    end
-    
-    -- Cập nhật nút GUI
-    if aimBtn then
-        if AimLockConfig.Enabled then
+    if AimLockState.IsActive then
+        StartAimLock()
+        if aimBtn then
             aimBtn.Text = "AIM LOCK [ON]"
             aimBtn.BackgroundColor3 = Color3.fromRGB(100, 70, 150)
-        else
+        end
+        status.Text = "AIM LOCK: ACTIVE (MaxDist=" .. AimLockConfig.MaxDistance .. ")"
+        ShowNotification("AIM LOCK ON - Khoảng cách " .. AimLockConfig.MaxDistance, true)
+    else
+        StopAimLock()
+        if aimBtn then
             aimBtn.Text = "AIM LOCK"
             aimBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
         end
+        status.Text = "STATUS : READY"
+        ShowNotification("AIM LOCK OFF", true)
     end
 end
 
--- ==================== THIẾT LẬP PHÍM TẮT ====================
-local function SetupHotkeys()
-    UserInputService.InputBegan:Connect(function(input, gameProcessed)
-        if gameProcessed then return end
-        
-        if input.KeyCode == AimLockConfig.ToggleKey then
-            if AimLockConfig.ToggleKeyModifier then
-                local isModifierPressed = false
-                if AimLockConfig.ToggleKeyModifier == "Shift" and UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
-                    isModifierPressed = true
-                elseif AimLockConfig.ToggleKeyModifier == "Ctrl" and UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
-                    isModifierPressed = true
-                elseif AimLockConfig.ToggleKeyModifier == "Alt" and UserInputService:IsKeyDown(Enum.KeyCode.LeftAlt) then
-                    isModifierPressed = true
-                end
-                
-                if isModifierPressed then
-                    ToggleAimLock()
-                end
-            else
-                ToggleAimLock()
-            end
-        end
-    end)
+-- ==================== XỬ LÝ SỰ KIỆN ====================
+local function OnCharacterRespawn()
+    if AimLockState.IsActive then
+        AimLockState.CurrentTarget = nil
+        ShowNotification("AIM LOCK: Respawn - Tiếp tục theo dõi", true)
+    end
 end
 
--- ==================== XỬ LÝ RESPAWN ====================
-local function OnCharacterRespawn()
-    if AimLockConfig.Enabled then
-        AimState.CurrentTarget = nil
-        AimState.FailedAttempts = 0
-        ShowNotification("AIM LOCK: ĐÃ RESPAWN - Tiếp tục theo dõi")
+local function OnPlayerRemoving(leavingPlayer)
+    if AimLockState.IsActive and AimLockState.CurrentTarget == leavingPlayer then
+        AimLockState.CurrentTarget = nil
     end
 end
 
 player.CharacterAdded:Connect(OnCharacterRespawn)
-
--- ==================== XỬ LÝ THOÁT GAME ====================
-local function OnPlayerRemoving(leavingPlayer)
-    if AimLockConfig.Enabled and AimState.CurrentTarget == leavingPlayer then
-        AimState.CurrentTarget = nil
-    end
-end
-
 Players.PlayerRemoving:Connect(OnPlayerRemoving)
 
--- ==================== KHỞI TẠO ====================
-local function InitializeAimLock()
-    SetupHotkeys()
-    print("[AIM LOCK] Đã khởi tạo thành công!")
-    print("   - Khoảng cách tối đa: " .. AimLockConfig.MaxDistance .. " studs")
-    print("   - Ưu tiên: " .. AimLockConfig.Priority)
-    print("   - Phím tắt: " .. tostring(AimLockConfig.ToggleKey))
-    print("   - Lock mượt: " .. (AimLockConfig.LockSmoothness > 0 and "Có" or "Không"))
-end
-
--- ==================== EXPORT HÀM ====================
--- Hàm để GUI có thể gọi
-local function GetAimLockStatus()
-    return AimLockConfig.Enabled
-end
-
-local function SetAimLockConfig(configTable)
-    for key, value in pairs(configTable) do
-        if AimLockConfig[key] ~= nil then
-            AimLockConfig[key] = value
-        end
-    end
-end
-
--- Tạo nút GUI
+-- ==================== TẠO NÚT GUI ====================
 local aimBtn = makeButton("AIM LOCK", 1, 1, Color3.fromRGB(80, 50, 120))
 aimBtn.MouseButton1Click:Connect(ToggleAimLock)
 
--- Khởi tạo
-InitializeAimLock()
---========================
+-- ==================== KHỞI TẠO ====================
+SetupHotkeys()
+print("[AIM LOCK PRO MAX] Đã sẵn sàng")
+print("   - Ưu tiên: " .. AimLockConfig.PriorityMode)
+print("   - Khoảng cách: " .. AimLockConfig.MaxDistance)
+print("   - Phím bật/tắt: " .. tostring(AimLockConfig.ToggleKey))
+print("   - Phím tăng/giảm khoảng cách: ] / [")--========================
 -- SYSTEM: ESP PLAYER PRO MAX (KHÔNG GOTO)
 --========================
 
