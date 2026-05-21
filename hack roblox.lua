@@ -667,177 +667,567 @@ aimBtn.MouseButton1Click:Connect(ToggleAimLock)
 -- Khởi tạo
 InitializeAimLock()
 --========================
--- ESP PLAYER
+-- SYSTEM: ESP PLAYER PRO MAX
+-- Version: 4.0
+-- Tác giả: Sidbuddb
+-- Mô tả: Hiển thị thông tin người chơi qua tường (tên, máu, khoảng cách, khung viền)
+-- Tối ưu: Không lag, xử lý lỗi, tự động cập nhật
 --========================
 
-local espEnabled = false
-local espObjects = {}
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
 
-local espBtn = makeButton("ESP PLAYER", 1, 2, Color3.fromRGB(50, 100, 150))
+local player = Players.LocalPlayer
 
-local function createESP(targetPlayer)
-    if espObjects[targetPlayer] then
-        if espObjects[targetPlayer].billboard then espObjects[targetPlayer].billboard:Destroy() end
-        if espObjects[targetPlayer].box then espObjects[targetPlayer].box:Destroy() end
-        espObjects[targetPlayer] = nil
+-- ==================== CẤU HÌNH ESP ====================
+local ESPConfig = {
+    -- Cài đặt cơ bản
+    Enabled = false,
+    MaxDistance = 300,              -- Khoảng cách tối đa hiển thị ESP (studs)
+    UpdateRate = 0.03,              -- Tốc độ cập nhật (giây)
+    
+    -- Cài đặt hiển thị
+    ShowName = true,                -- Hiển thị tên người chơi
+    ShowHealthBar = true,           -- Hiển thị thanh máu
+    ShowHealthText = true,          -- Hiển thị số máu
+    ShowDistance = true,            -- Hiển thị khoảng cách
+    ShowBox = true,                 -- Hiển thị khung viền
+    ShowLine = false,               -- Hiển thị đường kẻ từ camera (có thể gây lag)
+    
+    -- Cài đặt màu sắc
+    ColorByHealth = true,           -- Đổi màu theo máu
+    ColorByDistance = true,         -- Đổi màu khung theo khoảng cách
+    HealthHighColor = Color3.fromRGB(0, 255, 0),    -- Xanh: máu cao
+    HealthMidColor = Color3.fromRGB(255, 255, 0),   -- Vàng: máu trung bình
+    HealthLowColor = Color3.fromRGB(255, 0, 0),     -- Đỏ: máu thấp
+    BoxCloseColor = Color3.fromRGB(255, 50, 50),    -- Đỏ: rất gần
+    BoxMidColor = Color3.fromRGB(255, 150, 50),     -- Cam: gần
+    BoxFarColor = Color3.fromRGB(255, 255, 100),    -- Vàng: xa
+    
+    -- Cài đặt kích thước
+    NameSize = 14,                  -- Cỡ chữ tên
+    HealthTextSize = 11,            -- Cỡ chữ số máu
+    DistanceSize = 10,              -- Cỡ chữ khoảng cách
+    BoxThickness = 0.08,            -- Độ dày khung viền
+    BoxTransparency = 0.4,          -- Độ trong suốt khung viền
+    BillboardWidth = 180,           -- Chiều rộng billboard
+    BillboardHeight = 55,           -- Chiều cao billboard
+    StudsOffset = 2.5,              -- Độ cao hiển thị trên đầu
+    
+    -- Cài đặt lọc
+    IgnoreTeam = false,             -- Bỏ qua đồng đội
+    IgnoreFriends = false,          -- Bỏ qua bạn bè
+    IgnoreSelf = true,              -- Bỏ qua chính mình
+    OnlyShowLowHealth = false,      -- Chỉ hiển thị người có máu thấp
+    LowHealthThreshold = 50,        -- Ngưỡng máu thấp (phần trăm)
+    
+    -- Cài đặt hiệu suất
+    CacheEnabled = true,            -- Lưu cache để giảm lag
+    MaxRetries = 3,                 -- Số lần thử lại khi tạo ESP thất bại
+    RetryDelay = 0.5,               -- Thời gian chờ giữa các lần thử (giây)
+}
+
+-- ==================== BIẾN TOÀN CỤC ====================
+local ESPState = {
+    IsRunning = false,
+    ActiveObjects = {},      -- player -> {billboard, box, line, ...}
+    RetryCount = {},         -- player -> số lần thử
+    Cache = {},              -- cache dữ liệu
+    UpdateConnection = nil,
+    LastUpdateTime = 0,
+}
+
+-- ==================== HÀM TIỆN ÍCH ====================
+local function GetHealthPercent(humanoid)
+    if not humanoid then return 0 end
+    return (humanoid.Health / humanoid.MaxHealth) * 100
+end
+
+local function GetHealthColor(healthPercent)
+    if not ESPConfig.ColorByHealth then
+        return Color3.fromRGB(255, 255, 255)
     end
     
-    local char = targetPlayer.Character
-    if not char then return end
-    local head = char:FindFirstChild("Head")
-    local root = char:FindFirstChild("HumanoidRootPart")
-    local hum = char:FindFirstChild("Humanoid")
-    if not head or not root or not hum or hum.Health <= 0 then return end
+    if healthPercent >= 70 then
+        return ESPConfig.HealthHighColor
+    elseif healthPercent >= 30 then
+        return ESPConfig.HealthMidColor
+    else
+        return ESPConfig.HealthLowColor
+    end
+end
+
+local function GetBoxColorByDistance(distance)
+    if not ESPConfig.ColorByDistance then
+        return Color3.fromRGB(255, 0, 0)
+    end
+    
+    if distance < 50 then
+        return ESPConfig.BoxCloseColor
+    elseif distance < 100 then
+        return ESPConfig.BoxMidColor
+    else
+        return ESPConfig.BoxFarColor
+    end
+end
+
+local function IsValidForESP(targetPlayer)
+    -- Kiểm tra cơ bản
+    if not targetPlayer then return false end
+    if ESPConfig.IgnoreSelf and targetPlayer == player then return false end
+    
+    -- Kiểm tra nhân vật
+    local character = targetPlayer.Character
+    if not character then return false end
+    
+    -- Kiểm tra Humanoid
+    local humanoid = character:FindFirstChild("Humanoid")
+    if not humanoid then return false end
+    if humanoid.Health <= 0 then return false end
+    
+    -- Kiểm tra các bộ phận cần thiết
+    local head = character:FindFirstChild("Head")
+    local root = character:FindFirstChild("HumanoidRootPart")
+    if not head or not root then return false end
+    
+    -- Kiểm tra đội
+    if ESPConfig.IgnoreTeam and targetPlayer.Team and player.Team and targetPlayer.Team == player.Team then
+        return false
+    end
+    
+    -- Kiểm tra máu thấp
+    if ESPConfig.OnlyShowLowHealth then
+        local healthPercent = GetHealthPercent(humanoid)
+        if healthPercent > ESPConfig.LowHealthThreshold then
+            return false
+        end
+    end
+    
+    -- Kiểm tra khoảng cách
+    local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if myRoot then
+        local distance = (myRoot.Position - root.Position).Magnitude
+        if distance > ESPConfig.MaxDistance then
+            return false
+        end
+    end
+    
+    return true, humanoid, head, root
+end
+
+local function GetDistanceToTarget(targetRoot)
+    local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if not myRoot or not targetRoot then return ESPConfig.MaxDistance + 1
+    end
+    return (myRoot.Position - targetRoot.Position).Magnitude
+end
+
+-- ==================== TẠO ESP COMPONENTS ====================
+local function CreateBillboard(targetPlayer, head)
+    if not head then return nil end
     
     local billboard = Instance.new("BillboardGui")
-    billboard.Size = UDim2.new(0, 180, 0, 50)
-    billboard.StudsOffset = Vector3.new(0, 2.5, 0)
+    billboard.Name = "ESP_Billboard_" .. targetPlayer.Name
+    billboard.Size = UDim2.new(0, ESPConfig.BillboardWidth, 0, ESPConfig.BillboardHeight)
+    billboard.StudsOffset = Vector3.new(0, ESPConfig.StudsOffset, 0)
     billboard.AlwaysOnTop = true
+    billboard.MaxDistance = ESPConfig.MaxDistance
+    billboard.ExtentsOffsetWorldSpace = Vector3.new(0, 3, 0)
     billboard.Parent = head
     
+    return billboard
+end
+
+local function CreateNameLabel(parent)
+    if not ESPConfig.ShowName then return nil end
+    
     local nameLabel = Instance.new("TextLabel")
+    nameLabel.Name = "NameLabel"
     nameLabel.Size = UDim2.new(1, 0, 0, 20)
+    nameLabel.Position = UDim2.new(0, 0, 0, 0)
     nameLabel.BackgroundTransparency = 1
-    nameLabel.Text = targetPlayer.Name
     nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    nameLabel.TextStrokeTransparency = 0.3
+    nameLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
     nameLabel.Font = Enum.Font.GothamBold
-    nameLabel.TextSize = 14
-    nameLabel.Parent = billboard
+    nameLabel.TextSize = ESPConfig.NameSize
+    nameLabel.TextXAlignment = Enum.TextXAlignment.Center
+    nameLabel.Parent = parent
+    
+    return nameLabel
+end
+
+local function CreateHealthBar(parent)
+    if not ESPConfig.ShowHealthBar then return nil, nil end
+    
+    local barBg = Instance.new("Frame")
+    barBg.Name = "HealthBarBg"
+    barBg.Size = UDim2.new(0.85, 0, 0, 6)
+    barBg.Position = UDim2.new(0.075, 0, 0.4, 0)
+    barBg.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    barBg.BorderSizePixel = 0
+    barBg.Parent = parent
+    
+    local barFill = Instance.new("Frame")
+    barFill.Name = "HealthBarFill"
+    barFill.Size = UDim2.new(1, 0, 1, 0)
+    barFill.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+    barFill.BorderSizePixel = 0
+    barFill.Parent = barBg
+    
+    return barBg, barFill
+end
+
+local function CreateHealthText(parent)
+    if not ESPConfig.ShowHealthText then return nil end
     
     local healthText = Instance.new("TextLabel")
+    healthText.Name = "HealthText"
     healthText.Size = UDim2.new(1, 0, 0, 16)
-    healthText.Position = UDim2.new(0, 0, 0.35, 0)
+    healthText.Position = UDim2.new(0, 0, 0.55, 0)
     healthText.BackgroundTransparency = 1
-    healthText.Text = ""
     healthText.Font = Enum.Font.Gotham
-    healthText.TextSize = 11
-    healthText.Parent = billboard
+    healthText.TextSize = ESPConfig.HealthTextSize
+    healthText.TextXAlignment = Enum.TextXAlignment.Center
+    healthText.Parent = parent
+    
+    return healthText
+end
+
+local function CreateDistanceLabel(parent)
+    if not ESPConfig.ShowDistance then return nil end
     
     local distLabel = Instance.new("TextLabel")
+    distLabel.Name = "DistanceLabel"
     distLabel.Size = UDim2.new(1, 0, 0, 14)
-    distLabel.Position = UDim2.new(0, 0, 0.6, 0)
+    distLabel.Position = UDim2.new(0, 0, 0.75, 0)
     distLabel.BackgroundTransparency = 1
-    distLabel.Text = ""
+    distLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
     distLabel.Font = Enum.Font.Gotham
-    distLabel.TextSize = 10
-    distLabel.Parent = billboard
+    distLabel.TextSize = ESPConfig.DistanceSize
+    distLabel.TextXAlignment = Enum.TextXAlignment.Center
+    distLabel.Parent = parent
+    
+    return distLabel
+end
+
+local function CreateSelectionBox(targetPlayer, root)
+    if not ESPConfig.ShowBox then return nil end
+    if not root then return nil end
     
     local box = Instance.new("SelectionBox")
+    box.Name = "ESP_Box_" .. targetPlayer.Name
     box.Adornee = root
     box.Color3 = Color3.fromRGB(255, 0, 0)
-    box.LineThickness = 0.08
-    box.Transparency = 0.4
-    box.Parent = char
+    box.LineThickness = ESPConfig.BoxThickness
+    box.Transparency = ESPConfig.BoxTransparency
+    box.Parent = targetPlayer.Character
     
-    espObjects[targetPlayer] = {
-        billboard = billboard,
-        box = box,
-        healthText = healthText,
-        distLabel = distLabel,
-        humanoid = hum,
-        root = root
+    return box
+end
+
+local function CreateLine(targetPlayer, root, humanoid)
+    if not ESPConfig.ShowLine then return nil end
+    if not root or not humanoid then return nil end
+    
+    local line = Instance.new("SelectionPartLasso")
+    line.Name = "ESP_Line_" .. targetPlayer.Name
+    line.Humanoid = humanoid
+    line.Part = root
+    line.Color3 = Color3.fromRGB(255, 255, 255)
+    line.Transparency = 0.5
+    line.Visible = true
+    line.Parent = targetPlayer.Character
+    
+    return line
+end
+
+-- ==================== TẠO ESP CHO 1 NGƯỜI ====================
+local function CreateESPForPlayer(targetPlayer)
+    -- Kiểm tra và xóa cũ
+    if ESPState.ActiveObjects[targetPlayer] then
+        DestroyESP(targetPlayer)
+    end
+    
+    -- Kiểm tra hợp lệ
+    local isValid, humanoid, head, root = IsValidForESP(targetPlayer)
+    if not isValid then
+        -- Thử lại nếu cần
+        ESPState.RetryCount[targetPlayer] = (ESPState.RetryCount[targetPlayer] or 0) + 1
+        if ESPState.RetryCount[targetPlayer] <= ESPConfig.MaxRetries then
+            task.wait(ESPConfig.RetryDelay)
+            CreateESPForPlayer(targetPlayer)
+        end
+        return false
+    end
+    
+    -- Reset retry count
+    ESPState.RetryCount[targetPlayer] = nil
+    
+    -- Tạo các component
+    local billboard = CreateBillboard(targetPlayer, head)
+    local nameLabel = CreateNameLabel(billboard)
+    local healthBarBg, healthBarFill = CreateHealthBar(billboard)
+    local healthText = CreateHealthText(billboard)
+    local distanceLabel = CreateDistanceLabel(billboard)
+    local box = CreateSelectionBox(targetPlayer, root)
+    local line = CreateLine(targetPlayer, root, humanoid)
+    
+    -- Lưu vào state
+    ESPState.ActiveObjects[targetPlayer] = {
+        Character = targetPlayer.Character,
+        Billboard = billboard,
+        NameLabel = nameLabel,
+        HealthBarBg = healthBarBg,
+        HealthBarFill = healthBarFill,
+        HealthText = healthText,
+        DistanceLabel = distanceLabel,
+        Box = box,
+        Line = line,
+        Humanoid = humanoid,
+        Root = root,
+        Head = head,
+        LastHealth = humanoid.Health,
+        LastDistance = 0
     }
-end
-
-local function destroyAllESP()
-    for _, data in pairs(espObjects) do
-        if data.billboard then data.billboard:Destroy() end
-        if data.box then data.box:Destroy() end
-    end
-    espObjects = {}
-end
-
-local function createAllESP()
-    destroyAllESP()
-    for _, other in pairs(Players:GetPlayers()) do
-        if other ~= player then
-            createESP(other)
-        end
-    end
-end
-
-local function updateESP()
-    local myChar = player.Character
-    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
     
-    for other, data in pairs(espObjects) do
-        if other and data and data.humanoid and data.root then
-            local health = data.humanoid.Health
-            local maxHealth = data.humanoid.MaxHealth
-            local healthPercent = health / maxHealth
-            local color = Color3.fromRGB(0, 255, 0)
-            if healthPercent < 0.3 then color = Color3.fromRGB(255, 0, 0)
-            elseif healthPercent < 0.7 then color = Color3.fromRGB(255, 255, 0) end
-            
-            if data.healthText then
-                data.healthText.Text = string.format("%.0f / %.0f", health, maxHealth)
-                data.healthText.TextColor3 = color
+    return true
+end
+
+-- ==================== XÓA ESP ====================
+local function DestroyESP(targetPlayer)
+    local data = ESPState.ActiveObjects[targetPlayer]
+    if not data then return end
+    
+    if data.Billboard then pcall(function() data.Billboard:Destroy() end) end
+    if data.Box then pcall(function() data.Box:Destroy() end) end
+    if data.Line then pcall(function() data.Line:Destroy() end) end
+    
+    ESPState.ActiveObjects[targetPlayer] = nil
+end
+
+local function DestroyAllESP()
+    for targetPlayer, _ in pairs(ESPState.ActiveObjects) do
+        DestroyESP(targetPlayer)
+    end
+    ESPState.ActiveObjects = {}
+    ESPState.RetryCount = {}
+end
+
+-- ==================== CẬP NHẬT ESP ====================
+local function UpdateESPData()
+    local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    
+    for targetPlayer, data in pairs(ESPState.ActiveObjects) do
+        -- Kiểm tra xem target còn tồn tại không
+        if not targetPlayer or not targetPlayer.Character then
+            DestroyESP(targetPlayer)
+            goto continue
+        end
+        
+        local character = targetPlayer.Character
+        local humanoid = data.Humanoid
+        local root = data.Root
+        
+        if not humanoid or not root or humanoid.Health <= 0 then
+            DestroyESP(targetPlayer)
+            goto continue
+        end
+        
+        -- Lấy dữ liệu
+        local currentHealth = humanoid.Health
+        local maxHealth = humanoid.MaxHealth
+        local healthPercent = GetHealthPercent(humanoid)
+        local healthColor = GetHealthColor(healthPercent)
+        
+        local distance = GetDistanceToTarget(root)
+        local isVisible = distance <= ESPConfig.MaxDistance
+        
+        -- Cập nhật tên
+        if data.NameLabel and ESPConfig.ShowName then
+            data.NameLabel.Text = targetPlayer.Name
+        end
+        
+        -- Cập nhật thanh máu
+        if data.HealthBarFill and ESPConfig.ShowHealthBar then
+            local healthRatio = currentHealth / maxHealth
+            data.HealthBarFill.Size = UDim2.new(healthRatio, 0, 1, 0)
+            data.HealthBarFill.BackgroundColor3 = healthColor
+        end
+        
+        -- Cập nhật số máu
+        if data.HealthText and ESPConfig.ShowHealthText then
+            data.HealthText.Text = string.format("%.0f / %.0f", currentHealth, maxHealth)
+            data.HealthText.TextColor3 = healthColor
+        end
+        
+        -- Cập nhật khoảng cách
+        if data.DistanceLabel and ESPConfig.ShowDistance then
+            data.DistanceLabel.Text = string.format("%.1f m", distance)
+        end
+        
+        -- Cập nhật khung viền
+        if data.Box and ESPConfig.ShowBox then
+            data.Box.Visible = isVisible
+            data.Box.Color3 = GetBoxColorByDistance(distance)
+        end
+        
+        -- Cập nhật đường line
+        if data.Line and ESPConfig.ShowLine then
+            data.Line.Visible = isVisible
+        end
+        
+        -- Ẩn/hiện billboard
+        if data.Billboard then
+            data.Billboard.Enabled = isVisible
+        end
+        
+        -- Cập nhật cache
+        if ESPConfig.CacheEnabled then
+            data.LastHealth = currentHealth
+            data.LastDistance = distance
+        end
+        
+        ::continue::
+    end
+end
+
+-- ==================== TẠO ESP CHO TẤT CẢ ====================
+local function CreateAllESP()
+    DestroyAllESP()
+    
+    for _, otherPlayer in pairs(Players:GetPlayers()) do
+        if otherPlayer ~= player then
+            -- Tạo ngay nếu có nhân vật
+            if otherPlayer.Character then
+                CreateESPForPlayer(otherPlayer)
+            else
+                -- Chờ nhân vật xuất hiện
+                local conn
+                conn = otherPlayer.CharacterAdded:Connect(function()
+                    if ESPConfig.Enabled then
+                        task.wait(0.3)
+                        CreateESPForPlayer(otherPlayer)
+                    end
+                    conn:Disconnect()
+                end)
             end
-            
-            if myRoot then
-                local dist = (myRoot.Position - data.root.Position).Magnitude
-                if data.distLabel then
-                    data.distLabel.Text = string.format("%.1f m", dist)
-                end
-                if data.box then
-                    if dist < 50 then data.box.Color3 = Color3.fromRGB(255, 50, 50)
-                    elseif dist < 100 then data.box.Color3 = Color3.fromRGB(255, 150, 50)
-                    else data.box.Color3 = Color3.fromRGB(255, 255, 100) end
-                end
-                local visible = dist <= 250
-                if data.billboard then data.billboard.Enabled = visible end
-                if data.box then data.box.Visible = visible end
-            end
-        else
-            if data and data.billboard then data.billboard:Destroy() end
-            if data and data.box then data.box:Destroy() end
-            espObjects[other] = nil
         end
     end
 end
 
-local function toggleESP()
-    espEnabled = not espEnabled
-    if espEnabled then
-        createAllESP()
-        espBtn.Text = "ESP PLAYER [ON]"
-        espBtn.BackgroundColor3 = Color3.fromRGB(80, 130, 180)
-        status.Text = "STATUS : ESP PLAYER ON"
-        if not espLoop then
-            espLoop = RunService.RenderStepped:Connect(function()
-                if espEnabled then updateESP() end
-            end)
-        end
+-- ==================== XỬ LÝ SỰ KIỆN ====================
+local function OnPlayerAdded(newPlayer)
+    if not ESPConfig.Enabled then return end
+    if newPlayer == player then return end
+    
+    task.wait(0.5)
+    if newPlayer.Character then
+        CreateESPForPlayer(newPlayer)
     else
-        destroyAllESP()
-        espBtn.Text = "ESP PLAYER"
-        espBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
-        status.Text = "STATUS : READY"
-        if espLoop then espLoop:Disconnect() espLoop = nil end
+        local conn
+        conn = newPlayer.CharacterAdded:Connect(function()
+            if ESPConfig.Enabled then
+                task.wait(0.3)
+                CreateESPForPlayer(newPlayer)
+            end
+            conn:Disconnect()
+        end)
     end
 end
 
-espBtn.MouseButton1Click:Connect(toggleESP)
+local function OnPlayerRemoving(leavingPlayer)
+    DestroyESP(leavingPlayer)
+end
 
-Players.PlayerAdded:Connect(function(newPlayer)
-    if espEnabled then task.wait(0.5) createESP(newPlayer) end
-end)
-
-Players.PlayerRemoving:Connect(function(leavingPlayer)
-    if espObjects[leavingPlayer] then
-        if espObjects[leavingPlayer].billboard then espObjects[leavingPlayer].billboard:Destroy() end
-        if espObjects[leavingPlayer].box then espObjects[leavingPlayer].box:Destroy() end
-        espObjects[leavingPlayer] = nil
+local function OnCharacterAdded(targetPlayer)
+    if not ESPConfig.Enabled then return end
+    if targetPlayer == player then
+        -- Người chơi respawn, tạo lại ESP cho tất cả
+        task.wait(1)
+        CreateAllESP()
+    else
+        task.wait(0.5)
+        CreateESPForPlayer(targetPlayer)
     end
-end)
+end
 
-player.CharacterAdded:Connect(function()
-    if espEnabled then task.wait(1) createAllESP() end
-end)
+-- Đăng ký sự kiện cho từng người chơi
+local function SetupPlayerEvents(targetPlayer)
+    if targetPlayer == player then return end
+    
+    targetPlayer.CharacterAdded:Connect(function()
+        OnCharacterAdded(targetPlayer)
+    end)
+end
 
-local espLoop = nil
+-- ==================== BẬT/TẮT ESP ====================
+local function StartESP()
+    if ESPState.UpdateConnection then
+        ESPState.UpdateConnection:Disconnect()
+    end
+    
+    ESPState.UpdateConnection = RunService.RenderStepped:Connect(function()
+        if ESPConfig.Enabled then
+            UpdateESPData()
+        end
+    end)
+end
 
---========================
+local function StopESP()
+    if ESPState.UpdateConnection then
+        ESPState.UpdateConnection:Disconnect()
+        ESPState.UpdateConnection = nil
+    end
+    DestroyAllESP()
+end
+
+local function ToggleESP()
+    ESPConfig.Enabled = not ESPConfig.Enabled
+    
+    if ESPConfig.Enabled then
+        CreateAllESP()
+        StartESP()
+        if espBtn then
+            espBtn.Text = "ESP PLAYER [ON]"
+            espBtn.BackgroundColor3 = Color3.fromRGB(80, 130, 180)
+        end
+        status.Text = "STATUS : ESP PLAYER ON (Range: " .. ESPConfig.MaxDistance .. ")"
+    else
+        StopESP()
+        if espBtn then
+            espBtn.Text = "ESP PLAYER"
+            espBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+        end
+        status.Text = "STATUS : READY"
+    end
+end
+
+-- ==================== KHỞI TẠO ====================
+local function InitializeESP()
+    -- Đăng ký sự kiện toàn cục
+    Players.PlayerAdded:Connect(OnPlayerAdded)
+    Players.PlayerRemoving:Connect(OnPlayerRemoving)
+    player.CharacterAdded:Connect(OnCharacterAdded)
+    
+    -- Đăng ký sự kiện cho người chơi hiện tại
+    for _, other in pairs(Players:GetPlayers()) do
+        SetupPlayerEvents(other)
+    end
+    
+    print("[ESP PLAYER] Đã khởi tạo thành công!")
+    print("   - Khoảng cách tối đa: " .. ESPConfig.MaxDistance .. " studs")
+    print("   - Hiển thị: Tên|Máu|Khoảng cách|Khung")
+    print("   - Màu sắc: Theo máu và khoảng cách")
+end
+
+-- ==================== TẠO NÚT GUI ====================
+local espBtn = makeButton("ESP PLAYER", 1, 2, Color3.fromRGB(50, 100, 150))
+espBtn.MouseButton1Click:Connect(ToggleESP)
+
+-- Khởi tạo
+InitializeESP()--========================
 -- POV PLAYER
 --========================
 
