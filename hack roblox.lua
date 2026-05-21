@@ -808,171 +808,129 @@ player.CharacterAdded:Connect(function()
     end
 end)
 --========================
--- SUPER GODMODE (CHAN MOI SAT THUONG)
+-- GODMODE THAT (CHAN SAT THUONG TU GOC)
 --========================
 
 local godModeEnabled = false
 
-local godBtn = makeButton("GODMODE", 3, 1, Color3.fromRGB(200, 100, 50))
+local godBtn = makeButton("GODMODE", 4, 1, Color3.fromRGB(200, 100, 50))
 
--- Luu tat ca ket noi de quan ly
-local allConnections = {}
-local originalMaxHealth = {}
-local remoteHooks = {}
+-- Luu cac ket noi
+local connections = {}
 
--- Ham xoa tat ca ket noi
-local function clearAllConnections()
-    for _, conn in pairs(allConnections) do
-        if conn then
-            pcall(function() conn:Disconnect() end)
+local function clearConnections()
+    for _, conn in pairs(connections) do
+        pcall(function() conn:Disconnect() end)
+    end
+    connections = {}
+end
+
+-- CACH 1: Chan ham gay sat thuong trong Humanoid
+local function hookHumanoid()
+    local char = player.Character
+    if not char then return end
+    
+    local hum = char:FindFirstChild("Humanoid")
+    if not hum then return end
+    
+    -- Ghi de ham TakeDamage (quan trong nhat)
+    if hum.TakeDamage then
+        local oldTakeDamage = hum.TakeDamage
+        hum.TakeDamage = function(self, amount)
+            if godModeEnabled then
+                return  -- Khong nhan sat thuong
+            end
+            return oldTakeDamage(self, amount)
         end
     end
-    allConnections = {}
+    
+    -- Ghi de ham BreakJoints
+    local oldBreakJoints = hum.BreakJoints
+    hum.BreakJoints = function(self)
+        if godModeEnabled then
+            return
+        end
+        return oldBreakJoints(self)
+    end
 end
 
--- Ham khoi phuc lai nhan vat
-local function restoreCharacter()
-    local char = player.Character
-    if not char then return end
+-- CACH 2: Chan remote event (server gui sat thuong)
+local function hookRemotes()
+    local rs = game:GetService("ReplicatedStorage")
     
-    local hum = char:FindFirstChild("Humanoid")
-    if not hum then return end
-    
-    if originalMaxHealth[char] then
-        hum.MaxHealth = originalMaxHealth[char]
-    end
-    hum.Health = hum.MaxHealth
-    hum:ChangeState(Enum.HumanoidStateType.Running)
-end
-
--- CHAN 1: Chan mat mau (quan trong nhat)
-local function blockHealthLoss()
-    local char = player.Character
-    if not char then return end
-    
-    local hum = char:FindFirstChild("Humanoid")
-    if not hum then return end
-    
-    -- Luu max health goc
-    if not originalMaxHealth[char] then
-        originalMaxHealth[char] = hum.MaxHealth
-    end
-    
-    -- Set max health that lon
-    hum.MaxHealth = 999999999
-    hum.Health = 999999999
-    
-    -- Theo doi su thay doi cua health
-    local healthConn = hum:GetPropertyChangedSignal("Health"):Connect(function()
-        if godModeEnabled and hum.Health > 0 then
-            if hum.Health < 999999999 then
-                hum.Health = 999999999
+    local function blockRemote(remote)
+        if remote:IsA("RemoteEvent") then
+            local oldFire = remote.FireServer
+            remote.FireServer = function(_, ...)
+                local args = {...}
+                -- Kiem tra xem co phai lenh gay sat thuong khong
+                local isDamage = false
+                for _, arg in pairs(args) do
+                    if type(arg) == "number" and arg > 0 and arg < 1000 then
+                        if tostring(arg):find("damage") or tostring(arg):find("health") then
+                            isDamage = true
+                        end
+                    end
+                end
+                if godModeEnabled and isDamage then
+                    return  -- Chan khong gui di
+                end
+                return oldFire(remote, ...)
             end
         end
-    end)
-    table.insert(allConnections, healthConn)
+    end
     
-    -- Theo doi su thay doi cua max health
-    local maxHealthConn = hum:GetPropertyChangedSignal("MaxHealth"):Connect(function()
-        if godModeEnabled then
-            hum.MaxHealth = 999999999
-            hum.Health = 999999999
-        end
-    end)
-    table.insert(allConnections, maxHealthConn)
+    for _, remote in pairs(rs:GetDescendants()) do
+        blockRemote(remote)
+    end
+    
+    rs.DescendantAdded:Connect(blockRemote)
 end
 
--- CHAN 2: Chan su kien chet (Died)
-local function blockDeath()
+-- CACH 3: Chan tag (game dung tag de gay sat thuong)
+local function hookTags()
     local char = player.Character
     if not char then return end
     
-    local hum = char:FindFirstChild("Humanoid")
-    if not hum then return end
-    
-    local diedConn = hum.Died:Connect(function()
-        if godModeEnabled then
-            task.wait(0.05)
-            hum.Health = 999999999
-            hum.MaxHealth = 999999999
-            hum:ChangeState(Enum.HumanoidStateType.Running)
-        end
-    end)
-    table.insert(allConnections, diedConn)
-end
-
--- CHAN 3: Chan BreakJoints (chet cung)
-local function blockBreakJoints()
-    local char = player.Character
-    if not char then return end
-    
-    local breakConn = char.BreakJoints:Connect(function()
-        if godModeEnabled then
-            task.wait(0.05)
-            local hum = char:FindFirstChild("Humanoid")
-            if hum then
-                hum.Health = 999999999
-                hum.MaxHealth = 999999999
+    for _, obj in pairs(char:GetDescendants()) do
+        if obj:IsA("BasePart") then
+            -- Xoa cac tag gay sat thuong
+            local tags = {"Damage", "Hit", "Attack", "Kill", "Death"}
+            for _, tag in pairs(tags) do
+                local attr = obj:GetAttribute(tag)
+                if attr then
+                    obj:SetAttribute(tag, nil)
+                end
             end
         end
-    end)
-    table.insert(allConnections, breakConn)
+    end
 end
 
--- CHAN 4: Chan state change (nga, stun, ragdoll)
-local function blockBadStates()
-    local char = player.Character
-    if not char then return end
+-- CACH 4: Chan Player.Character (tranh bi thay the bang xac chet)
+local function blockCharacterReplace()
+    local oldCharacter = player.Character
     
-    local hum = char:FindFirstChild("Humanoid")
-    if not hum then return end
-    
-    local stateConn = hum.StateChanged:Connect(function(_, newState)
+    local conn = player:GetPropertyChangedSignal("Character"):Connect(function()
         if godModeEnabled then
-            local badStates = {
-                Enum.HumanoidStateType.Dead,
-                Enum.HumanoidStateType.FallenDown,
-                Enum.HumanoidStateType.Ragdoll,
-                Enum.HumanoidStateType.Stunned,
-                Enum.HumanoidStateType.GettingUp,
-                Enum.HumanoidStateType.Physics,
-                Enum.HumanoidStateType.Seated
-            }
-            for _, state in pairs(badStates) do
-                if newState == state then
-                    hum:ChangeState(Enum.HumanoidStateType.Running)
-                    break
+            local newChar = player.Character
+            if newChar and newChar ~= oldCharacter then
+                -- Kiem tra xem co phai chet khong
+                local hum = newChar:FindFirstChild("Humanoid")
+                if hum and hum.Health <= 0 then
+                    -- Quay lai nhan vat cu
+                    player.Character = oldCharacter
+                else
+                    oldCharacter = newChar
                 end
             end
         end
     end)
-    table.insert(allConnections, stateConn)
+    table.insert(connections, conn)
 end
 
--- CHAN 5: Chan luc day/keo (BodyVelocity)
-local function blockForces()
-    local char = player.Character
-    if not char then return end
-    
-    local forceConn = char.DescendantAdded:Connect(function(obj)
-        if godModeEnabled then
-            local forceTypes = {
-                "BodyVelocity", "BodyForce", "BodyAngularVelocity", 
-                "BodyThrust", "BodyPosition", "RocketPropulsion"
-            }
-            for _, forceName in pairs(forceTypes) do
-                if obj:IsA(forceName) then
-                    obj:Destroy()
-                end
-            end
-        end
-    end)
-    table.insert(allConnections, forceConn)
-end
-
--- CHAN 6: Chan Explosion (no)
-local function blockExplosions()
-    local expConn = workspace.DescendantAdded:Connect(function(obj)
+-- CACH 5: Chan Explosion (no)
+local function blockExplosion()
+    local conn = workspace.DescendantAdded:Connect(function(obj)
         if godModeEnabled and obj:IsA("Explosion") then
             local char = player.Character
             if char and char:FindFirstChild("HumanoidRootPart") then
@@ -985,12 +943,12 @@ local function blockExplosions()
             end
         end
     end)
-    table.insert(allConnections, expConn)
+    table.insert(connections, conn)
 end
 
--- CHAN 7: Chan moi truong doc hai (lava, fire, acid)
+-- CACH 6: Chan moi truong (lava, void, kill brick)
 local function blockEnvironment()
-    local envConn = RunService.RenderStepped:Connect(function()
+    local conn = RunService.RenderStepped:Connect(function()
         if not godModeEnabled then return end
         
         local char = player.Character
@@ -999,202 +957,93 @@ local function blockEnvironment()
         local root = char:FindFirstChild("HumanoidRootPart")
         if not root then return end
         
-        local hum = char:FindFirstChild("Humanoid")
-        if not hum then return end
+        -- Chan roi vuc
+        if root.Position.Y < -10 then
+            root.CFrame = CFrame.new(root.Position.X, 50, root.Position.Z)
+        end
         
-        -- Tim vat the gay sat thuong
-        for _, obj in pairs(workspace:GetDescendants()) do
-            if obj:IsA("BasePart") and obj.Parent ~= char then
-                local name = obj.Name:lower()
-                local dangerNames = {"lava", "acid", "fire", "kill", "death", "void", "spike", "trap"}
-                local isDanger = false
-                for _, dn in pairs(dangerNames) do
-                    if name:find(dn) then
-                        isDanger = true
-                        break
-                    end
-                end
-                
-                if isDanger then
-                    local dist = (root.Position - obj.Position).Magnitude
-                    if dist < 15 then
-                        -- Day lui
-                        local dir = (root.Position - obj.Position).Unit
-                        root.CFrame = root.CFrame + dir * 8
-                        hum.Health = 999999999
+        -- Chan lava, kill brick
+        for _, part in pairs(workspace:GetDescendants()) do
+            if part:IsA("BasePart") then
+                local name = part.Name:lower()
+                if name:find("lava") or name:find("acid") or name:find("kill") or name:find("death") or name:find("void") then
+                    local dist = (root.Position - part.Position).Magnitude
+                    if dist < 10 then
+                        local dir = (root.Position - part.Position).Unit
+                        root.CFrame = root.CFrame + dir * 15
                     end
                 end
             end
-        end
-        
-        -- Chan roi xuong void
-        if root.Position.Y < -20 then
-            root.CFrame = CFrame.new(root.Position.X, 100, root.Position.Z)
-            hum.Health = 999999999
         end
     end)
-    table.insert(allConnections, envConn)
+    table.insert(connections, conn)
 end
 
--- CHAN 8: Chan remote event (server gui sat thuong)
-local function blockRemoteDamage()
-    local function hookRemote(remote)
-        if remote:IsA("RemoteEvent") and not remoteHooks[remote] then
-            remoteHooks[remote] = true
-            
-            local oldFire = remote.FireServer
-            remote.FireServer = function(...)
-                if not godModeEnabled then
-                    return oldFire(...)
-                end
-            end
-            
-            local oldInvoke = remote.InvokeServer
-            if oldInvoke then
-                remote.InvokeServer = function(...)
-                    if not godModeEnabled then
-                        return oldInvoke(...)
-                    end
-                end
-            end
-        end
-    end
-    
-    local rs = game:GetService("ReplicatedStorage")
-    for _, remote in pairs(rs:GetDescendants()) do
-        hookRemote(remote)
-    end
-    
-    local addedConn = rs.DescendantAdded:Connect(hookRemote)
-    table.insert(allConnections, addedConn)
-end
-
--- CHAN 9: Chan tool va dan
-local function blockWeapons()
+-- CACH 7: Chan tool ban sung
+local function blockTools()
     local char = player.Character
     if not char then return end
     
-    local weaponConn = char.DescendantAdded:Connect(function(obj)
+    local conn = char.DescendantAdded:Connect(function(obj)
+        if godModeEnabled and obj:IsA("Tool") then
+            -- Chan cac tool gay sat thuong
+            local dangerousTools = {"Gun", "Weapon", "Sword", "Knife", "Bow", "Rocket"}
+            for _, toolName in pairs(dangerousTools) do
+                if obj.Name:find(toolName) then
+                    obj.Parent = nil
+                end
+            end
+        end
+    end)
+    table.insert(connections, conn)
+end
+
+-- CACH 8: Chan BodyVelocity, BodyForce (bi hut, day)
+local function blockForces()
+    local char = player.Character
+    if not char then return end
+    
+    local conn = char.DescendantAdded:Connect(function(obj)
         if godModeEnabled then
-            -- Xoa dan, bullet
-            if obj:IsA("BasePart") then
-                local name = obj.Name:lower()
-                if name:find("bullet") or name:find("projectile") or name:find("shell") or name:find("beam") then
+            local forceTypes = {"BodyVelocity", "BodyForce", "BodyAngularVelocity", "BodyThrust", "BodyPosition"}
+            for _, ft in pairs(forceTypes) do
+                if obj:IsA(ft) then
                     obj:Destroy()
                 end
             end
         end
     end)
-    table.insert(allConnections, weaponConn)
-    
-    -- Quet workspace de xoa dan co san
-    local cleanConn = RunService.RenderStepped:Connect(function()
-        if godModeEnabled then
-            for _, obj in pairs(workspace:GetDescendants()) do
-                if obj:IsA("BasePart") and obj.Parent ~= char then
-                    local name = obj.Name:lower()
-                    if name:find("bullet") or name:find("projectile") then
-                        obj:Destroy()
-                    end
-                end
-            end
-        end
-    end)
-    table.insert(allConnections, cleanConn)
+    table.insert(connections, conn)
 end
 
--- CHAN 10: Chan raycast (bam sung)
-local function blockRaycast()
-    local oldFindPartOnRay = workspace.FindPartOnRay
-    local oldRaycast = workspace.Raycast
-    
-    workspace.FindPartOnRay = function(...)
-        if godModeEnabled then
-            return nil, nil
-        end
-        return oldFindPartOnRay(workspace, ...)
-    end
-    
-    workspace.Raycast = function(...)
-        if godModeEnabled then
-            return nil
-        end
-        return oldRaycast(workspace, ...)
-    end
-    
-    table.insert(allConnections, {Disconnect = function()
-        workspace.FindPartOnRay = oldFindPartOnRay
-        workspace.Raycast = oldRaycast
-    end})
-end
-
--- CHAN 11: Chan damage tag (game dung tag de gay sat thuong)
-local function blockDamageTags()
-    local char = player.Character
-    if not char then return end
-    
-    for _, part in pairs(char:GetDescendants()) do
-        if part:IsA("BasePart") then
-            local conn = part:GetPropertyChangedSignal("CFrame"):Connect(function()
-                if godModeEnabled then
-                    local hum = char:FindFirstChild("Humanoid")
-                    if hum then
-                        hum.Health = 999999999
-                    end
-                end
-            end)
-            table.insert(allConnections, conn)
-        end
-    end
-end
-
--- CHAN 12: Tu dong respawn bao ve
-local function autoProtectOnRespawn()
-    local respawnConn = player.CharacterAdded:Connect(function(newChar)
-        if godModeEnabled then
-            task.wait(0.2)
-            
-            local hum = newChar:FindFirstChild("Humanoid")
-            if hum then
-                hum.MaxHealth = 999999999
-                hum.Health = 999999999
-                hum:ChangeState(Enum.HumanoidStateType.Running)
-            end
-            
-            -- Tai lai cac che do bao ve
-            blockHealthLoss()
-            blockDeath()
-            blockBreakJoints()
-            blockBadStates()
-            blockForces()
-            blockWeapons()
-            blockDamageTags()
-        end
-    end)
-    table.insert(allConnections, respawnConn)
-end
-
--- KHONG CHE TAT CA
+-- CHAY TAT CA CAC CHE DO
 local function enableGodMode()
-    -- Xoa het cu
-    clearAllConnections()
-    remoteHooks = {}
+    clearConnections()
     
-    -- Khoi tao lai
-    blockHealthLoss()
-    blockDeath()
-    blockBreakJoints()
-    blockBadStates()
-    blockForces()
-    blockExplosions()
+    hookHumanoid()
+    hookRemotes()
+    hookTags()
+    blockCharacterReplace()
+    blockExplosion()
     blockEnvironment()
-    blockRemoteDamage()
-    blockWeapons()
-    blockRaycast()
-    blockDamageTags()
-    autoProtectOnRespawn()
+    blockTools()
+    blockForces()
     
-
+    -- Chay lap de duy tri trang thai
+    local maintainConn = RunService.RenderStepped:Connect(function()
+        if godModeEnabled then
+            local char = player.Character
+            if char then
+                local hum = char:FindFirstChild("Humanoid")
+                if hum and hum.Health > 0 then
+                    hum:ChangeState(Enum.HumanoidStateType.Running)
+                end
+            end
+        end
+    end)
+    table.insert(connections, maintainConn)
+    
+    
 end
 
 -- BAT/TAT
@@ -1204,24 +1053,21 @@ local function toggleGodMode()
     if godModeEnabled then
         godBtn.Text = "GODMODE [ON]"
         godBtn.BackgroundColor3 = Color3.fromRGB(220, 120, 70)
-        status.Text = "STATUS :  GODMODE ON"
+        status.Text = "STATUS : GODMODE ON"
         enableGodMode()
     else
         godBtn.Text = "GODMODE"
         godBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
         status.Text = "STATUS : READY"
-        clearAllConnections()
-        
-        -- Khoi phuc lai
-        local char = player.Character
-        if char then
-            local hum = char:FindFirstChild("Humanoid")
-            if hum and originalMaxHealth[char] then
-                hum.MaxHealth = originalMaxHealth[char]
-                hum.Health = originalMaxHealth[char]
-            end
-        end
+        clearConnections()
     end
 end
 
 godBtn.MouseButton1Click:Connect(toggleGodMode)
+
+player.CharacterAdded:Connect(function()
+    if godModeEnabled then
+        task.wait(0.5)
+        enableGodMode()
+    end
+end)
