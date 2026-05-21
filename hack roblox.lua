@@ -1699,7 +1699,7 @@ local dodgeEnabled = false
 local dodgeRange = 160               -- Phạm vi phát hiện (studs)
 local dodgeAngleThreshold = 25      -- Góc (độ) cho phép (0 = thẳng, 90 = rộng)
 local dodgeDistance = 15            -- Khoảng cách dịch chuyển khi né
-local dodgeCooldown = 1.5           -- Thời gian chờ giữa các lần né (giây)
+local dodgeCooldown = 0.5           -- Thời gian chờ giữa các lần né (giây)
 local lastDodgeTime = 0
 local dodgeLoop = nil
 
