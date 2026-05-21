@@ -808,7 +808,7 @@ player.CharacterAdded:Connect(function()
     end
 end)
 --========================
--- FLY (CO CHINH TOC DO)
+-- FLY CHO MOBILE (CAM UNG)
 --========================
 
 local flyEnabled = false
@@ -817,8 +817,6 @@ local flyBodyVel = nil
 local flyBodyGyro = nil
 
 local flyBtn = makeButton("FLY", 3, 1, Color3.fromRGB(80, 80, 200))
-local speedSlider = nil
-local speedValue = nil
 
 -- Tao thanh truot chinh toc do
 local sliderFrame = Instance.new("Frame")
@@ -891,19 +889,53 @@ sliderButton.MouseButton1Down:Connect(function()
 end)
 
 game:GetService("UserInputService").InputChanged:Connect(function(input)
-    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+    if dragging and input.UserInputType == Enum.UserInputType.Touch then
         updateSpeed(input)
     end
 end)
 
 game:GetService("UserInputService").InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+    if input.UserInputType == Enum.UserInputType.Touch then
         dragging = false
     end
 end)
 
--- Bat/tat Fly
-local function startFly()
+-- Dieu khien bay cho mobile (dung man hinh cam ung)
+local function getMobileMoveDirection()
+    local moveDir = Vector3.new()
+    local cam = workspace.CurrentCamera
+    
+    -- Lay huong tu joystick ao hoac tu nut dieu khien tren man hinh
+    -- O day toi dung virtual touch (nhan giua man hinh de bay)
+    
+    for _, touch in pairs(game:GetService("UserInputService"):GetTouches()) do
+        local screenPos = touch.Position
+        local screenSize = workspace.CurrentCamera.ViewportSize
+        
+        -- Chia man hinh lam 4 vung de dieu khien
+        local xPercent = screenPos.X / screenSize.X
+        local yPercent = screenPos.Y / screenSize.Y
+        
+        if xPercent < 0.5 and yPercent < 0.5 then
+            -- Goc tren trai: bay len
+            moveDir = moveDir + Vector3.new(0, 1, 0)
+        elseif xPercent < 0.5 and yPercent > 0.5 then
+            -- Goc duoi trai: bay xuong
+            moveDir = moveDir - Vector3.new(0, 1, 0)
+        elseif xPercent > 0.5 and yPercent < 0.5 then
+            -- Goc tren phai: tien len
+            moveDir = moveDir + cam.CFrame.LookVector
+        elseif xPercent > 0.5 and yPercent > 0.5 then
+            -- Goc duoi phai: lui lai
+            moveDir = moveDir - cam.CFrame.LookVector
+        end
+    end
+    
+    return moveDir
+end
+
+-- Bay cho mobile
+local function startFlyMobile()
     local char = player.Character
     if not char then return end
     
@@ -927,26 +959,35 @@ local function startFly()
     hum.PlatformStand = true
     
     while flyEnabled and root and root.Parent do
-        local cam = workspace.CurrentCamera
         local moveDir = Vector3.new()
+        local cam = workspace.CurrentCamera
         
-        if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.W) then
-            moveDir = moveDir + cam.CFrame.LookVector
-        end
-        if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.S) then
-            moveDir = moveDir - cam.CFrame.LookVector
-        end
-        if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.A) then
-            moveDir = moveDir - cam.CFrame.RightVector
-        end
-        if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.D) then
-            moveDir = moveDir + cam.CFrame.RightVector
-        end
-        if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.Space) then
-            moveDir = moveDir + Vector3.new(0, 1, 0)
-        end
-        if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.LeftControl) then
-            moveDir = moveDir - Vector3.new(0, 1, 0)
+        -- Cach 1: Dung W A S D cho ban phim (neu co)
+        local uis = game:GetService("UserInputService")
+        if uis:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + cam.CFrame.LookVector end
+        if uis:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - cam.CFrame.LookVector end
+        if uis:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - cam.CFrame.RightVector end
+        if uis:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + cam.CFrame.RightVector end
+        if uis:IsKeyDown(Enum.KeyCode.Space) then moveDir = moveDir + Vector3.new(0, 1, 0) end
+        if uis:IsKeyDown(Enum.KeyCode.LeftControl) then moveDir = moveDir - Vector3.new(0, 1, 0) end
+        
+        -- Cach 2: Dung cam ung cho mobile
+        if #uis:GetTouches() > 0 then
+            for _, touch in pairs(uis:GetTouches()) do
+                local screenPos = touch.Position
+                local screenSize = cam.ViewportSize
+                
+                -- Dieu khien bay bang cach keo man hinh
+                -- Nhan va keo o giua de di chuyen
+                local centerX = screenSize.X / 2
+                local centerY = screenSize.Y / 2
+                
+                local deltaX = (screenPos.X - centerX) / centerX
+                local deltaY = (screenPos.Y - centerY) / centerY
+                
+                moveDir = moveDir + cam.CFrame.RightVector * deltaX
+                moveDir = moveDir + cam.CFrame.LookVector * deltaY
+            end
         end
         
         if moveDir.Magnitude > 0 then
@@ -975,7 +1016,7 @@ local function toggleFly()
         flyCoroutine = coroutine.create(function()
             while flyEnabled do
                 if player.Character then
-                    startFly()
+                    startFlyMobile()
                 end
                 task.wait(0.5)
             end
@@ -1005,9 +1046,8 @@ player.CharacterAdded:Connect(function()
         task.wait(0.5)
         if flyCoroutine then coroutine.close(flyCoroutine) end
         flyCoroutine = coroutine.create(function()
-            startFly()
+            startFlyMobile()
         end)
         coroutine.resume(flyCoroutine)
     end
 end)
-
