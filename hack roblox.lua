@@ -808,7 +808,7 @@ player.CharacterAdded:Connect(function()
     end
 end)
 --========================
--- FLY CHO MOBILE (CAM UNG)
+-- FLY GUI V3 (CHO PC & MOBILE)
 --========================
 
 local flyEnabled = false
@@ -816,126 +816,131 @@ local flySpeed = 50
 local flyBodyVel = nil
 local flyBodyGyro = nil
 
-local flyBtn = makeButton("FLY", 3, 1, Color3.fromRGB(80, 80, 200))
+-- Tạo nút bật fly
+local flyBtn = makeButton("FLY", 3, 1, Color3.fromRGB(80, 80, 220))
 
--- Tao thanh truot chinh toc do
-local sliderFrame = Instance.new("Frame")
-sliderFrame.Parent = buttonContainer
-sliderFrame.Size = UDim2.new(0, 250, 0, 40)
-sliderFrame.Position = UDim2.new(0, 10, 0, 145)
-sliderFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-sliderFrame.BackgroundTransparency = 0.2
-sliderFrame.Visible = false
-sliderFrame.BorderSizePixel = 0
+-- Tạo khung điều khiển (giống mấy cái script nổi tiếng)
+local flyControlFrame = Instance.new("Frame")
+flyControlFrame.Parent = buttonContainer
+flyControlFrame.Size = UDim2.new(0, 0, 0, 0)
+flyControlFrame.Position = UDim2.new(0, 0, 0, 0)
+flyControlFrame.Visible = false
+flyControlFrame.BackgroundTransparency = 1
 
-local sliderCorner = Instance.new("UICorner")
-sliderCorner.CornerRadius = UDim.new(0, 8)
-sliderCorner.Parent = sliderFrame
+-- Thanh trượt chỉnh tốc độ
+local speedFrame = Instance.new("Frame")
+speedFrame.Parent = flyControlFrame
+speedFrame.Size = UDim2.new(0, 200, 0, 30)
+speedFrame.Position = UDim2.new(0, 10, 0, 0)
+speedFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+speedFrame.BackgroundTransparency = 0.2
+speedFrame.BorderSizePixel = 0
 
-local sliderLabel = Instance.new("TextLabel")
-sliderLabel.Size = UDim2.new(0, 60, 1, 0)
-sliderLabel.Position = UDim2.new(0, 5, 0, 0)
-sliderLabel.BackgroundTransparency = 1
-sliderLabel.Text = "SPEED:"
-sliderLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-sliderLabel.Font = Enum.Font.GothamBold
-sliderLabel.TextSize = 12
-sliderLabel.Parent = sliderFrame
+local speedCorner = Instance.new("UICorner")
+speedCorner.CornerRadius = UDim.new(0, 8)
+speedCorner.Parent = speedFrame
 
-local sliderBar = Instance.new("Frame")
-sliderBar.Size = UDim2.new(0, 120, 0, 8)
-sliderBar.Position = UDim2.new(0, 70, 0.5, -4)
-sliderBar.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
-sliderBar.BorderSizePixel = 0
-sliderBar.Parent = sliderFrame
+local speedLabel = Instance.new("TextLabel")
+speedLabel.Size = UDim2.new(0, 50, 1, 0)
+speedLabel.Position = UDim2.new(0, 5, 0, 0)
+speedLabel.BackgroundTransparency = 1
+speedLabel.Text = "TỐC ĐỘ:"
+speedLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+speedLabel.Font = Enum.Font.GothamBold
+speedLabel.TextSize = 11
+speedLabel.Parent = speedFrame
 
-local sliderFill = Instance.new("Frame")
-sliderFill.Size = UDim2.new(0.5, 0, 1, 0)
-sliderFill.BackgroundColor3 = Color3.fromRGB(0, 150, 200)
-sliderFill.BorderSizePixel = 0
-sliderFill.Parent = sliderBar
+local speedBar = Instance.new("Frame")
+speedBar.Size = UDim2.new(0, 100, 0, 6)
+speedBar.Position = UDim2.new(0, 60, 0.5, -3)
+speedBar.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+speedBar.BorderSizePixel = 0
+speedBar.Parent = speedFrame
 
-local sliderButton = Instance.new("TextButton")
-sliderButton.Size = UDim2.new(0, 12, 0, 12)
-sliderButton.Position = UDim2.new(0.5, -6, 0.5, -6)
-sliderButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-sliderButton.Text = ""
-sliderButton.BorderSizePixel = 0
-sliderButton.Parent = sliderBar
+local speedFill = Instance.new("Frame")
+speedFill.Size = UDim2.new(0.5, 0, 1, 0)
+speedFill.BackgroundColor3 = Color3.fromRGB(0, 180, 220)
+speedFill.BorderSizePixel = 0
+speedFill.Parent = speedBar
 
-local speedValueLabel = Instance.new("TextLabel")
-speedValueLabel.Size = UDim2.new(0, 40, 1, 0)
-speedValueLabel.Position = UDim2.new(1, -45, 0, 0)
-speedValueLabel.BackgroundTransparency = 1
-speedValueLabel.Text = "50"
-speedValueLabel.TextColor3 = Color3.fromRGB(0, 150, 200)
-speedValueLabel.Font = Enum.Font.GothamBold
-speedValueLabel.TextSize = 12
-speedValueLabel.Parent = sliderFrame
+local speedValue = Instance.new("TextLabel")
+speedValue.Size = UDim2.new(0, 30, 1, 0)
+speedValue.Position = UDim2.new(1, -35, 0, 0)
+speedValue.BackgroundTransparency = 1
+speedValue.Text = "50"
+speedValue.TextColor3 = Color3.fromRGB(0, 200, 255)
+speedValue.Font = Enum.Font.GothamBold
+speedValue.TextSize = 12
+speedValue.Parent = speedFrame
 
--- Xu ly keo thanh truot
-local dragging = false
-local function updateSpeed(input)
-    local pos = input.Position.X - sliderBar.AbsolutePosition.X
-    local percent = math.clamp(pos / sliderBar.AbsoluteBounds.Size.X, 0, 1)
-    flySpeed = math.floor(percent * 200 + 10)
-    sliderFill.Size = UDim2.new(percent, 0, 1, 0)
-    sliderButton.Position = UDim2.new(percent, -6, 0.5, -6)
-    speedValueLabel.Text = tostring(flySpeed)
+-- Nút tăng/giảm tốc độ
+local speedMinus = Instance.new("TextButton")
+speedMinus.Size = UDim2.new(0, 25, 0, 25)
+speedMinus.Position = UDim2.new(0, 170, 0.5, -12)
+speedMinus.Text = "-"
+speedMinus.TextSize = 16
+speedMinus.Font = Enum.Font.GothamBold
+speedMinus.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+speedMinus.TextColor3 = Color3.new(1, 1, 1)
+speedMinus.BorderSizePixel = 0
+speedMinus.Parent = speedFrame
+Instance.new("UICorner", speedMinus).CornerRadius = UDim.new(0, 6)
+
+local speedPlus = Instance.new("TextButton")
+speedPlus.Size = UDim2.new(0, 25, 0, 25)
+speedPlus.Position = UDim2.new(0, 200, 0.5, -12)
+speedPlus.Text = "+"
+speedPlus.TextSize = 16
+speedPlus.Font = Enum.Font.GothamBold
+speedPlus.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+speedPlus.TextColor3 = Color3.new(1, 1, 1)
+speedPlus.BorderSizePixel = 0
+speedPlus.Parent = speedFrame
+Instance.new("UICorner", speedPlus).CornerRadius = UDim.new(0, 6)
+
+-- Cập nhật thanh trượt
+local function updateSpeedBar()
+    local percent = (flySpeed - 20) / 180
+    speedFill.Size = UDim2.new(percent, 0, 1, 0)
+    speedValue.Text = tostring(flySpeed)
 end
 
-sliderButton.MouseButton1Down:Connect(function()
+speedMinus.MouseButton1Click:Connect(function()
+    flySpeed = math.max(20, flySpeed - 10)
+    updateSpeedBar()
+    status.Text = "STATUS : FLY SPEED " .. flySpeed
+end)
+
+speedPlus.MouseButton1Click:Connect(function()
+    flySpeed = math.min(200, flySpeed + 10)
+    updateSpeedBar()
+    status.Text = "STATUS : FLY SPEED " .. flySpeed
+end)
+
+-- Kéo thả thanh trượt
+local dragging = false
+speedBar.MouseButton1Down:Connect(function()
     dragging = true
 end)
 
 game:GetService("UserInputService").InputChanged:Connect(function(input)
-    if dragging and input.UserInputType == Enum.UserInputType.Touch then
-        updateSpeed(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local pos = input.Position.X - speedBar.AbsolutePosition.X
+        local percent = math.clamp(pos / speedBar.AbsoluteBounds.Size.X, 0, 1)
+        flySpeed = math.floor(percent * 180 + 20)
+        updateSpeedBar()
+        status.Text = "STATUS : FLY SPEED " .. flySpeed
     end
 end)
 
 game:GetService("UserInputService").InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch then
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
         dragging = false
     end
 end)
 
--- Dieu khien bay cho mobile (dung man hinh cam ung)
-local function getMobileMoveDirection()
-    local moveDir = Vector3.new()
-    local cam = workspace.CurrentCamera
-    
-    -- Lay huong tu joystick ao hoac tu nut dieu khien tren man hinh
-    -- O day toi dung virtual touch (nhan giua man hinh de bay)
-    
-    for _, touch in pairs(game:GetService("UserInputService"):GetTouches()) do
-        local screenPos = touch.Position
-        local screenSize = workspace.CurrentCamera.ViewportSize
-        
-        -- Chia man hinh lam 4 vung de dieu khien
-        local xPercent = screenPos.X / screenSize.X
-        local yPercent = screenPos.Y / screenSize.Y
-        
-        if xPercent < 0.5 and yPercent < 0.5 then
-            -- Goc tren trai: bay len
-            moveDir = moveDir + Vector3.new(0, 1, 0)
-        elseif xPercent < 0.5 and yPercent > 0.5 then
-            -- Goc duoi trai: bay xuong
-            moveDir = moveDir - Vector3.new(0, 1, 0)
-        elseif xPercent > 0.5 and yPercent < 0.5 then
-            -- Goc tren phai: tien len
-            moveDir = moveDir + cam.CFrame.LookVector
-        elseif xPercent > 0.5 and yPercent > 0.5 then
-            -- Goc duoi phai: lui lai
-            moveDir = moveDir - cam.CFrame.LookVector
-        end
-    end
-    
-    return moveDir
-end
-
--- Bay cho mobile
-local function startFlyMobile()
+-- Chức năng bay
+local function startFlyV3()
     local char = player.Character
     if not char then return end
     
@@ -958,43 +963,37 @@ local function startFlyMobile()
     
     hum.PlatformStand = true
     
+    -- Biến cho điều khiển
+    local moveDirection = Vector3.new()
+    local upDown = 0
+    
+    -- Nhận input từ bàn phím
+    local uis = game:GetService("UserInputService")
+    
     while flyEnabled and root and root.Parent do
-        local moveDir = Vector3.new()
         local cam = workspace.CurrentCamera
+        moveDirection = Vector3.new()
+        upDown = 0
         
-        -- Cach 1: Dung W A S D cho ban phim (neu co)
-        local uis = game:GetService("UserInputService")
-        if uis:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + cam.CFrame.LookVector end
-        if uis:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - cam.CFrame.LookVector end
-        if uis:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - cam.CFrame.RightVector end
-        if uis:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + cam.CFrame.RightVector end
-        if uis:IsKeyDown(Enum.KeyCode.Space) then moveDir = moveDir + Vector3.new(0, 1, 0) end
-        if uis:IsKeyDown(Enum.KeyCode.LeftControl) then moveDir = moveDir - Vector3.new(0, 1, 0) end
+        -- PC: WASD
+        if uis:IsKeyDown(Enum.KeyCode.W) then moveDirection = moveDirection + cam.CFrame.LookVector end
+        if uis:IsKeyDown(Enum.KeyCode.S) then moveDirection = moveDirection - cam.CFrame.LookVector end
+        if uis:IsKeyDown(Enum.KeyCode.A) then moveDirection = moveDirection - cam.CFrame.RightVector end
+        if uis:IsKeyDown(Enum.KeyCode.D) then moveDirection = moveDirection + cam.CFrame.RightVector end
+        if uis:IsKeyDown(Enum.KeyCode.Space) then upDown = 1 end
+        if uis:IsKeyDown(Enum.KeyCode.LeftControl) then upDown = -1 end
         
-        -- Cach 2: Dung cam ung cho mobile
-        if #uis:GetTouches() > 0 then
-            for _, touch in pairs(uis:GetTouches()) do
-                local screenPos = touch.Position
-                local screenSize = cam.ViewportSize
-                
-                -- Dieu khien bay bang cach keo man hinh
-                -- Nhan va keo o giua de di chuyen
-                local centerX = screenSize.X / 2
-                local centerY = screenSize.Y / 2
-                
-                local deltaX = (screenPos.X - centerX) / centerX
-                local deltaY = (screenPos.Y - centerY) / centerY
-                
-                moveDir = moveDir + cam.CFrame.RightVector * deltaX
-                moveDir = moveDir + cam.CFrame.LookVector * deltaY
-            end
+        -- Mobile: dùng joystick từ game
+        local moveVector = hum.MoveDirection
+        if moveVector.Magnitude > 0 then
+            moveDirection = (cam.CFrame.LookVector * moveVector.Z + cam.CFrame.RightVector * moveVector.X)
         end
         
-        if moveDir.Magnitude > 0 then
-            moveDir = moveDir.Unit
+        if moveDirection.Magnitude > 0 then
+            moveDirection = moveDirection.Unit
         end
         
-        flyBodyVel.Velocity = moveDir * flySpeed
+        flyBodyVel.Velocity = (moveDirection * flySpeed) + (Vector3.new(0, upDown * flySpeed, 0))
         flyBodyGyro.CFrame = cam.CFrame
         
         task.wait()
@@ -1003,29 +1002,32 @@ end
 
 local flyCoroutine = nil
 
-local function toggleFly()
+local function toggleFlyV3()
     flyEnabled = not flyEnabled
     
     if flyEnabled then
         flyBtn.Text = "FLY [ON]"
-        flyBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 220)
-        sliderFrame.Visible = true
+        flyBtn.BackgroundColor3 = Color3.fromRGB(120, 120, 240)
+        flyControlFrame.Visible = true
+        flyControlFrame.Size = UDim2.new(0, 220, 0, 40)
+        flyControlFrame.Position = UDim2.new(0, 10, 0, 145)
         status.Text = "STATUS : FLY ON (SPEED: " .. flySpeed .. ")"
         
         if flyCoroutine then coroutine.close(flyCoroutine) end
         flyCoroutine = coroutine.create(function()
             while flyEnabled do
                 if player.Character then
-                    startFlyMobile()
+                    startFlyV3()
                 end
                 task.wait(0.5)
             end
         end)
         coroutine.resume(flyCoroutine)
     else
-        flyBtn.Text = "FLY"
+        flyBtn.Text = "FLY V3"
         flyBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
-        sliderFrame.Visible = false
+        flyControlFrame.Visible = false
+        flyControlFrame.Size = UDim2.new(0, 0, 0, 0)
         status.Text = "STATUS : READY"
         
         if flyBodyVel then flyBodyVel:Destroy() flyBodyVel = nil end
@@ -1039,14 +1041,14 @@ local function toggleFly()
     end
 end
 
-flyBtn.MouseButton1Click:Connect(toggleFly)
+flyBtn.MouseButton1Click:Connect(toggleFlyV3)
 
 player.CharacterAdded:Connect(function()
     if flyEnabled then
         task.wait(0.5)
         if flyCoroutine then coroutine.close(flyCoroutine) end
         flyCoroutine = coroutine.create(function()
-            startFlyMobile()
+            startFlyV3()
         end)
         coroutine.resume(flyCoroutine)
     end
