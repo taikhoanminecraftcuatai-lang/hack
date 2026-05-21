@@ -1684,3 +1684,173 @@ local function InitializeInfiniteJump()
 end
 
 InitializeInfiniteJump()
+--========================
+-- DODGE (NE) - TU DONG NE DAN / TRAINING
+--========================
+-- Mô tả: Khi có người chơi khác nhìn về phía bạn trong phạm vi,
+--        tự động dịch chuyển bạn ra khỏi tâm ngắm.
+-- Cách hoạt động:
+--   - Tính góc giữa hướng nhìn của người chơi khác và vector từ họ đến bạn.
+--   - Nếu góc lệch nhỏ (dưới ngưỡng), tức là họ đang nhìn thẳng vào bạn.
+--   - Khi đó, bạn sẽ được đẩy/dịch chuyển sang trái/phải/lên/xuống để tránh.
+--========================
+
+local dodgeEnabled = false
+local dodgeRange = 160               -- Phạm vi phát hiện (studs)
+local dodgeAngleThreshold = 25      -- Góc (độ) cho phép (0 = thẳng, 90 = rộng)
+local dodgeDistance = 15            -- Khoảng cách dịch chuyển khi né
+local dodgeCooldown = 1.5           -- Thời gian chờ giữa các lần né (giây)
+local lastDodgeTime = 0
+local dodgeLoop = nil
+
+local dodgeBtn = makeButton("DODGE", 3, 1, Color3.fromRGB(255, 150, 50))
+
+-- Hàm tính góc giữa hai vector (độ)
+local function getAngleBetween(v1, v2)
+    local dot = v1.X * v2.X + v1.Y * v2.Y + v1.Z * v2.Z
+    local mag1 = math.sqrt(v1.X^2 + v1.Y^2 + v1.Z^2)
+    local mag2 = math.sqrt(v2.X^2 + v2.Y^2 + v2.Z^2)
+    if mag1 * mag2 == 0 then return 90 end
+    local rad = math.acos(math.clamp(dot / (mag1 * mag2), -1, 1))
+    return rad * (180 / math.pi)
+end
+
+-- Kiểm tra xem một người chơi có đang nhìn về phía bạn không
+local function isLookingAtMe(targetPlayer)
+    local targetChar = targetPlayer.Character
+    if not targetChar then return false end
+    local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+    local targetHead = targetChar:FindFirstChild("Head")
+    if not targetRoot then return false end
+    
+    -- Xác định hướng nhìn của targetPlayer (ưu tiên hướng của HumanoidRootPart)
+    local lookDir = targetRoot.CFrame.LookVector
+    -- Nếu có head, dùng hướng của head chính xác hơn (tùy game)
+    if targetHead then
+        lookDir = targetHead.CFrame.LookVector
+    end
+    
+    local myChar = player.Character
+    if not myChar then return false end
+    local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return false end
+    
+    -- Vector từ target đến bạn
+    local toMe = (myRoot.Position - targetRoot.Position).Unit
+    -- Tính góc
+    local angle = getAngleBetween(lookDir, toMe)
+    return angle <= dodgeAngleThreshold
+end
+
+-- Lấy hướng né ngẫu nhiên (tránh bị đẩy vào tường)
+local function getRandomDodgeDirection()
+    local dirs = {
+        Vector3.new(1, 0, 0),   -- phải
+        Vector3.new(-1, 0, 0),  -- trái
+        Vector3.new(0, 0, 1),   -- tiến
+        Vector3.new(0, 0, -1),  -- lùi
+        Vector3.new(0, 1, 0),   -- lên
+        Vector3.new(0, -1, 0),  -- xuống (ít dùng)
+    }
+    return dirs[math.random(1, #dirs)]
+end
+
+-- Hàm thực hiện né: dịch chuyển CFrame hoặc tạo BodyVelocity đẩy
+local function performDodge()
+    local char = player.Character
+    if not char then return end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    local hum = char:FindFirstChild("Humanoid")
+    
+    -- Chọn hướng né
+    local dir = getRandomDodgeDirection()
+    local newPos = root.Position + dir * dodgeDistance
+    
+    -- Kiểm tra va chạm đơn giản (tránh xuyên tường quá sâu)
+    local ray = Ray.new(root.Position, dir * dodgeDistance)
+    local hit, pos = workspace:FindPartOnRay(ray, char)
+    if hit then
+        -- Nếu bị chặn, chỉ lùi đến sát vật cản
+        newPos = pos - dir * 1
+    end
+    
+    -- Sử dụng BodyVelocity để đẩy mượt (ít gây anti-cheat hơn teleport)
+    local bv = Instance.new("BodyVelocity")
+    bv.MaxForce = Vector3.new(1,1,1) * 5000
+    bv.Velocity = (newPos - root.Position).Unit * 60
+    bv.Parent = root
+    task.wait(0.15)
+    bv:Destroy()
+    
+    -- Đồng thời set CFrame để đảm bảo vị trí chính xác
+    root.CFrame = CFrame.new(newPos, newPos + Vector3.new(0,0,1))
+    
+    -- Nếu có humanoid, cho phép nhảy nhẹ để tăng hiệu ứng
+    if hum then
+        hum.Jump = true
+    end
+    
+    lastDodgeTime = GetCurrentTime()
+end
+
+-- Vòng lặp phát hiện và xử lý né
+local function startDodgeLoop()
+    if dodgeLoop then dodgeLoop:Disconnect() end
+    dodgeLoop = RunService.RenderStepped:Connect(function()
+        if not dodgeEnabled then return end
+        local now = GetCurrentTime()
+        if now - lastDodgeTime < dodgeCooldown then return end
+        
+        local closestAttacker = nil
+        local smallestAngle = dodgeAngleThreshold + 1
+        
+        for _, other in pairs(Players:GetPlayers()) do
+            if other ~= player then
+                if isLookingAtMe(other) then
+                    -- Tính khoảng cách để ưu tiên người gần
+                    local otherChar = other.Character
+                    if otherChar then
+                        local otherRoot = otherChar:FindFirstChild("HumanoidRootPart")
+                        local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+                        if otherRoot and myRoot then
+                            local dist = (myRoot.Position - otherRoot.Position).Magnitude
+                            if dist <= dodgeRange then
+                                performDodge()
+                                break  -- Chỉ né 1 lần mỗi frame, tránh spam
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end)
+end
+
+-- Bật/tắt chức năng
+local function toggleDodge()
+    dodgeEnabled = not dodgeEnabled
+    if dodgeEnabled then
+        startDodgeLoop()
+        dodgeBtn.Text = "DODGE [ON]"
+        dodgeBtn.BackgroundColor3 = Color3.fromRGB(255, 180, 80)
+        status.Text = "STATUS : DODGE ACTIVE"
+    else
+        if dodgeLoop then dodgeLoop:Disconnect() dodgeLoop = nil end
+        dodgeBtn.Text = "DODGE"
+        dodgeBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+        status.Text = "STATUS : READY"
+    end
+end
+
+dodgeBtn.MouseButton1Click:Connect(toggleDodge)
+
+-- Đảm bảo khi respawn vẫn hoạt động
+player.CharacterAdded:Connect(function()
+    if dodgeEnabled then
+        -- reset lastDodgeTime để tránh lỗi
+        lastDodgeTime = 0
+        if dodgeLoop then dodgeLoop:Disconnect() end
+        startDodgeLoop()
+    end
+end)
