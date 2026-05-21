@@ -1685,20 +1685,48 @@ end
 
 InitializeInfiniteJump()
 --========================
--- DODGE SIÊU NHẠY (PHẢN XẠ TỨC THÌ)
+-- DODGE AN TOÀN (KHÔNG BAY RA NGOÀI)
 --========================
 local dodgeEnabled = false
-local dodgeRange = 85               -- phạm vi phát hiện (studs)
-local dodgeAngle = 28               -- góc nhìn vào bạn (độ)
-local dodgeDistance = 14            -- khoảng cách lướt
-local dodgeCooldown = 0.8           -- cooldown (giây) – giảm để né liên tục
+local dodgeRange = 75
+local dodgeAngle = 28
+local dodgeDistance = 10            -- giảm xuống 10 để an toàn hơn
+local dodgeCooldown = 0.9
 local lastDodge = 0
 local dodgeLoop = nil
-local currentTween = nil
 
 local dodgeBtn = makeButton("DODGE", 3, 1, Color3.fromRGB(255, 150, 50))
 
--- Hàm tính góc chính xác
+-- Lấy ranh giới map (dựa vào Terrain hoặc các part lớn)
+local function getMapBounds()
+    local minY = -100  -- mặc định, nếu không tìm thấy
+    if workspace.Terrain then
+        local size = workspace.Terrain.Size
+        local origin = workspace.Terrain.Position - size/2
+        minY = origin.Y
+    else
+        for _, v in pairs(workspace:GetDescendants()) do
+            if v:IsA("BasePart") and v.Name:lower():find("baseplate") or v.Name:lower():find("ground") then
+                minY = v.Position.Y + 5
+                break
+            end
+        end
+    end
+    return minY
+end
+
+-- Kiểm tra vị trí có an toàn (không rơi void, không quá xa) không
+local function isSafePosition(pos)
+    local minY = getMapBounds()
+    if pos.Y < minY then return false end
+    -- Kiểm tra xung quanh có nền đất không (tùy chọn)
+    local ray = Ray.new(pos + Vector3.new(0, 2, 0), Vector3.new(0, -5, 0))
+    local hit = workspace:FindPartOnRay(ray, player.Character)
+    if not hit and pos.Y < minY + 20 then return false end
+    return true
+end
+
+-- Hàm tính góc
 local function getAngle(v1, v2)
     local dot = v1.X*v2.X + v1.Y*v2.Y + v1.Z*v2.Z
     local mag1 = math.sqrt(v1.X^2 + v1.Y^2 + v1.Z^2)
@@ -1707,17 +1735,41 @@ local function getAngle(v1, v2)
     return math.acos(math.clamp(dot/(mag1*mag2), -1, 1)) * (180/math.pi)
 end
 
--- Lấy hướng né (ưu tiên trái/phải so với attacker)
-local function getDodgeDirection(attackerRoot, myRoot)
-    local dirToAttacker = (attackerRoot.Position - myRoot.Position).Unit
-    -- Hướng vuông góc (trái / phải) – đây là hướng an toàn nhất để thoát khỏi tầm ngắm
-    local right = Vector3.new(-dirToAttacker.Z, 0, dirToAttacker.X).Unit
-    return right
+-- Tìm hướng né an toàn (không bay ra khỏi map)
+local function getSafeDodgeDirection(attackerRoot, myRoot)
+    local toAttacker = (attackerRoot.Position - myRoot.Position).Unit
+    -- Hướng vuông góc (trái/phải) – an toàn nhất
+    local candidates = {
+        Vector3.new(-toAttacker.Z, 0, toAttacker.X).Unit,
+        Vector3.new(toAttacker.Z, 0, -toAttacker.X).Unit,
+        Vector3.new(1, 0, 0),
+        Vector3.new(-1, 0, 0),
+        Vector3.new(0, 0, 1),
+        Vector3.new(0, 0, -1),
+    }
+    local bestDir = nil
+    local bestDist = 0
+    for _, dir in ipairs(candidates) do
+        local targetPos = myRoot.Position + dir * dodgeDistance
+        if isSafePosition(targetPos) then
+            -- Kiểm tra va chạm tường
+            local ray = Ray.new(myRoot.Position, dir * dodgeDistance)
+            local hit, hitPos = workspace:FindPartOnRayWithIgnoreList(ray, {player.Character}, false)
+            if hit then
+                targetPos = hitPos - dir * 0.5
+            end
+            if isSafePosition(targetPos) then
+                return dir
+            end
+        end
+    end
+    -- Nếu không có hướng an toàn, chọn hướng lên trên (bật nhảy)
+    return Vector3.new(0, 1, 0)
 end
 
--- Kiểm tra một người có đang ngắm bạn không
-local function isAimingAtMe(player)
-    local char = player.Character
+-- Kiểm tra ai đang ngắm mình
+local function isAimingAtMe(attacker)
+    local char = attacker.Character
     if not char then return false end
     local lookPart = char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
     if not lookPart then return false end
@@ -1736,8 +1788,8 @@ local function isAimingAtMe(player)
     return dist <= dodgeRange
 end
 
--- Né siêu mượt (kết hợp BodyVelocity + Tween để không bị giật)
-local function performDodge(direction)
+-- Né an toàn (chỉ Tween, không BodyVelocity)
+local function performSafeDodge(direction)
     local char = player.Character
     if not char then return end
     local root = char:FindFirstChild("HumanoidRootPart")
@@ -1746,26 +1798,18 @@ local function performDodge(direction)
     if hum then hum.AutoRotate = false end
 
     local targetPos = root.Position + direction * dodgeDistance
-
-    -- Dùng BodyVelocity để tạo đà mượt
-    local bv = Instance.new("BodyVelocity")
-    bv.MaxForce = Vector3.new(1,1,1) * 5000
-    bv.Velocity = direction * (dodgeDistance / 0.08)  -- tốc độ rất nhanh
-    bv.Parent = root
-
-    -- Tween để đảm bảo vị trí cuối chính xác (không bị trôi)
-    if currentTween and currentTween.PlaybackState ~= Enum.PlaybackState.Completed then
-        currentTween:Cancel()
+    -- Lần nữa đảm bảo an toàn
+    if not isSafePosition(targetPos) then
+        targetPos = root.Position + direction * (dodgeDistance * 0.5)
     end
-    currentTween = TweenService:Create(root, TweenInfo.new(0.08, Enum.EasingStyle.Linear), {CFrame = CFrame.new(targetPos)})
-    currentTween:Play()
-    currentTween.Completed:Wait()
 
-    bv:Destroy()
+    local tween = TweenService:Create(root, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {CFrame = CFrame.new(targetPos)})
+    tween:Play()
+    tween.Completed:Wait()
     if hum then hum.AutoRotate = true end
 end
 
--- Vòng lặp phát hiện
+-- Vòng lặp
 local function dodgeUpdate()
     if not dodgeEnabled then return end
     local now = tick()
@@ -1779,8 +1823,8 @@ local function dodgeUpdate()
                 local myRoot = myChar:FindFirstChild("HumanoidRootPart")
                 local otherRoot = otherChar:FindFirstChild("HumanoidRootPart")
                 if myRoot and otherRoot then
-                    local dir = getDodgeDirection(otherRoot, myRoot)
-                    performDodge(dir)
+                    local dir = getSafeDodgeDirection(otherRoot, myRoot)
+                    performSafeDodge(dir)
                     lastDodge = now
                     break
                 end
