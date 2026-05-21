@@ -1685,180 +1685,83 @@ end
 
 InitializeInfiniteJump()
 --========================
--- DODGE AN TOÀN (KHÔNG BAY RA NGOÀI)
+-- HITBOX SHRINK (THU NHỎ CỰC NHỎ)
 --========================
-local dodgeEnabled = false
-local dodgeRange = 75
-local dodgeAngle = 28
-local dodgeDistance = 10            -- giảm xuống 10 để an toàn hơn
-local dodgeCooldown = 0.9
-local lastDodge = 0
-local dodgeLoop = nil
+local shrinkEnabled = false
+local scaleFactor = 0.2          -- tỷ lệ thu nhỏ (0.2 = còn 20% kích thước)
+local originalSizes = {}          -- lưu kích thước gốc
 
-local dodgeBtn = makeButton("DODGE", 3, 1, Color3.fromRGB(255, 150, 50))
+local shrinkBtn = makeButton("SHRINK", 3, 2, Color3.fromRGB(150, 50, 200))
 
--- Lấy ranh giới map (dựa vào Terrain hoặc các part lớn)
-local function getMapBounds()
-    local minY = -100  -- mặc định, nếu không tìm thấy
-    if workspace.Terrain then
-        local size = workspace.Terrain.Size
-        local origin = workspace.Terrain.Position - size/2
-        minY = origin.Y
-    else
-        for _, v in pairs(workspace:GetDescendants()) do
-            if v:IsA("BasePart") and v.Name:lower():find("baseplate") or v.Name:lower():find("ground") then
-                minY = v.Position.Y + 5
-                break
-            end
-        end
-    end
-    return minY
-end
+-- Danh sách các bộ phận cần thu nhỏ
+local bodyParts = {
+    "Head", "UpperTorso", "LowerTorso", "HumanoidRootPart",
+    "LeftUpperArm", "RightUpperArm", "LeftLowerArm", "RightLowerArm",
+    "LeftUpperLeg", "RightUpperLeg", "LeftLowerLeg", "RightLowerLeg",
+    "LeftFoot", "RightFoot", "LeftHand", "RightHand"
+}
 
--- Kiểm tra vị trí có an toàn (không rơi void, không quá xa) không
-local function isSafePosition(pos)
-    local minY = getMapBounds()
-    if pos.Y < minY then return false end
-    -- Kiểm tra xung quanh có nền đất không (tùy chọn)
-    local ray = Ray.new(pos + Vector3.new(0, 2, 0), Vector3.new(0, -5, 0))
-    local hit = workspace:FindPartOnRay(ray, player.Character)
-    if not hit and pos.Y < minY + 20 then return false end
-    return true
-end
-
--- Hàm tính góc
-local function getAngle(v1, v2)
-    local dot = v1.X*v2.X + v1.Y*v2.Y + v1.Z*v2.Z
-    local mag1 = math.sqrt(v1.X^2 + v1.Y^2 + v1.Z^2)
-    local mag2 = math.sqrt(v2.X^2 + v2.Y^2 + v2.Z^2)
-    if mag1*mag2 == 0 then return 90 end
-    return math.acos(math.clamp(dot/(mag1*mag2), -1, 1)) * (180/math.pi)
-end
-
--- Tìm hướng né an toàn (không bay ra khỏi map)
-local function getSafeDodgeDirection(attackerRoot, myRoot)
-    local toAttacker = (attackerRoot.Position - myRoot.Position).Unit
-    -- Hướng vuông góc (trái/phải) – an toàn nhất
-    local candidates = {
-        Vector3.new(-toAttacker.Z, 0, toAttacker.X).Unit,
-        Vector3.new(toAttacker.Z, 0, -toAttacker.X).Unit,
-        Vector3.new(1, 0, 0),
-        Vector3.new(-1, 0, 0),
-        Vector3.new(0, 0, 1),
-        Vector3.new(0, 0, -1),
-    }
-    local bestDir = nil
-    local bestDist = 0
-    for _, dir in ipairs(candidates) do
-        local targetPos = myRoot.Position + dir * dodgeDistance
-        if isSafePosition(targetPos) then
-            -- Kiểm tra va chạm tường
-            local ray = Ray.new(myRoot.Position, dir * dodgeDistance)
-            local hit, hitPos = workspace:FindPartOnRayWithIgnoreList(ray, {player.Character}, false)
-            if hit then
-                targetPos = hitPos - dir * 0.5
-            end
-            if isSafePosition(targetPos) then
-                return dir
-            end
-        end
-    end
-    -- Nếu không có hướng an toàn, chọn hướng lên trên (bật nhảy)
-    return Vector3.new(0, 1, 0)
-end
-
--- Kiểm tra ai đang ngắm mình
-local function isAimingAtMe(attacker)
-    local char = attacker.Character
-    if not char then return false end
-    local lookPart = char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
-    if not lookPart then return false end
-    local lookDir = lookPart.CFrame.LookVector
-
-    local myChar = player.Character
-    if not myChar then return false end
-    local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-    if not myRoot then return false end
-
-    local toMe = (myRoot.Position - lookPart.Position).Unit
-    local angle = getAngle(lookDir, toMe)
-    if angle > dodgeAngle then return false end
-
-    local dist = (myRoot.Position - lookPart.Position).Magnitude
-    return dist <= dodgeRange
-end
-
--- Né an toàn (chỉ Tween, không BodyVelocity)
-local function performSafeDodge(direction)
+-- Thu nhỏ toàn bộ cơ thể
+local function shrinkHitbox()
     local char = player.Character
     if not char then return end
-    local root = char:FindFirstChild("HumanoidRootPart")
-    if not root then return end
-    local hum = char:FindFirstChild("Humanoid")
-    if hum then hum.AutoRotate = false end
-
-    local targetPos = root.Position + direction * dodgeDistance
-    -- Lần nữa đảm bảo an toàn
-    if not isSafePosition(targetPos) then
-        targetPos = root.Position + direction * (dodgeDistance * 0.5)
+    for _, partName in pairs(bodyParts) do
+        local part = char:FindFirstChild(partName)
+        if part and part:IsA("BasePart") then
+            if not originalSizes[part] then
+                originalSizes[part] = part.Size
+            end
+            local newSize = originalSizes[part] * scaleFactor
+            -- Đảm bảo kích thước không nhỏ hơn 0.1 stud
+            part.Size = Vector3.new(math.max(0.1, newSize.X), math.max(0.1, newSize.Y), math.max(0.1, newSize.Z))
+        end
     end
-
-    local tween = TweenService:Create(root, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {CFrame = CFrame.new(targetPos)})
-    tween:Play()
-    tween.Completed:Wait()
-    if hum then hum.AutoRotate = true end
-end
-
--- Vòng lặp
-local function dodgeUpdate()
-    if not dodgeEnabled then return end
-    local now = tick()
-    if now - lastDodge < dodgeCooldown then return end
-
-    for _, other in pairs(Players:GetPlayers()) do
-        if other ~= player and isAimingAtMe(other) then
-            local myChar = player.Character
-            local otherChar = other.Character
-            if myChar and otherChar then
-                local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-                local otherRoot = otherChar:FindFirstChild("HumanoidRootPart")
-                if myRoot and otherRoot then
-                    local dir = getSafeDodgeDirection(otherRoot, myRoot)
-                    performSafeDodge(dir)
-                    lastDodge = now
-                    break
+    -- Cũng thu nhỏ tool đang cầm (tuỳ chọn)
+    for _, tool in pairs(char:GetChildren()) do
+        if tool:IsA("Tool") then
+            for _, part in pairs(tool:GetDescendants()) do
+                if part:IsA("BasePart") and not originalSizes[part] then
+                    originalSizes[part] = part.Size
+                    local newSize = originalSizes[part] * scaleFactor
+                    part.Size = Vector3.new(math.max(0.1, newSize.X), math.max(0.1, newSize.Y), math.max(0.1, newSize.Z))
                 end
             end
         end
     end
 end
 
-local function startDodgeLoop()
-    if dodgeLoop then dodgeLoop:Disconnect() end
-    dodgeLoop = RunService.RenderStepped:Connect(dodgeUpdate)
+-- Khôi phục kích thước gốc
+local function restoreHitbox()
+    for part, origSize in pairs(originalSizes) do
+        if part and part.Parent then
+            part.Size = origSize
+        end
+    end
+    originalSizes = {}
 end
 
-local function toggleDodge()
-    dodgeEnabled = not dodgeEnabled
-    if dodgeEnabled then
-        startDodgeLoop()
-        dodgeBtn.Text = "DODGE [ON]"
-        dodgeBtn.BackgroundColor3 = Color3.fromRGB(255, 180, 80)
-        status.Text = "STATUS : DODGE ACTIVE"
+-- Khi bật/tắt
+local function toggleShrink()
+    shrinkEnabled = not shrinkEnabled
+    if shrinkEnabled then
+        shrinkHitbox()
+        shrinkBtn.Text = "SHRINK [ON]"
+        shrinkBtn.BackgroundColor3 = Color3.fromRGB(180, 80, 220)
+        status.Text = "STATUS : HITBOX SHRINK ACTIVE"
     else
-        if dodgeLoop then dodgeLoop:Disconnect() dodgeLoop = nil end
-        dodgeBtn.Text = "DODGE"
-        dodgeBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+        restoreHitbox()
+        shrinkBtn.Text = "SHRINK"
+        shrinkBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
         status.Text = "STATUS : READY"
     end
 end
 
-dodgeBtn.MouseButton1Click:Connect(toggleDodge)
+shrinkBtn.MouseButton1Click:Connect(toggleShrink)
 
+-- Tự động áp dụng khi respawn
 player.CharacterAdded:Connect(function()
-    lastDodge = 0
-    if dodgeEnabled then
-        if dodgeLoop then dodgeLoop:Disconnect() end
-        startDodgeLoop()
+    if shrinkEnabled then
+        task.wait(0.3)
+        shrinkHitbox()
     end
 end)
