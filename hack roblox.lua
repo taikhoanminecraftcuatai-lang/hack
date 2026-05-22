@@ -1,10 +1,8 @@
 --========================
--- SIDHUB PREMIUM (CHUYÊN NGHIỆP, KHÔNG KÉO)
+-- SIDHUB PREMIUM (FIXED)
 --========================
 local player = game.Players.LocalPlayer
 local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 
 -- === KEY SYSTEM ===
@@ -29,12 +27,6 @@ if not whitelist[player.Name] then
     keyCorner.CornerRadius = UDim.new(0, 14)
     keyCorner.Parent = keyFrame
     
-    local keyGlow = Instance.new("UIStroke")
-    keyGlow.Color = Color3.fromRGB(80, 80, 140)
-    keyGlow.Thickness = 1.5
-    keyGlow.Transparency = 0.6
-    keyGlow.Parent = keyFrame
-    
     local keyTitle = Instance.new("TextLabel")
     keyTitle.Parent = keyFrame
     keyTitle.Size = UDim2.new(1, 0, 0, 55)
@@ -44,16 +36,6 @@ if not whitelist[player.Name] then
     keyTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
     keyTitle.TextSize = 26
     keyTitle.Font = Enum.Font.GothamBold
-    
-    local keySub = Instance.new("TextLabel")
-    keySub.Parent = keyFrame
-    keySub.Size = UDim2.new(1, 0, 0, 20)
-    keySub.Position = UDim2.new(0, 0, 0.35, 0)
-    keySub.BackgroundTransparency = 1
-    keySub.Text = "ENTER AUTHENTICATION KEY"
-    keySub.TextColor3 = Color3.fromRGB(150, 150, 180)
-    keySub.TextSize = 11
-    keySub.Font = Enum.Font.Gotham
     
     local keyBox = Instance.new("TextBox")
     keyBox.Parent = keyFrame
@@ -81,6 +63,7 @@ if not whitelist[player.Name] then
     submitBtn.Font = Enum.Font.GothamBold
     submitBtn.TextSize = 14
     submitBtn.BorderSizePixel = 0
+    submitBtn.BackgroundColor3 = Color3.fromRGB(80, 60, 140)
     
     local submitCorner = Instance.new("UICorner")
     submitCorner.CornerRadius = UDim.new(0, 10)
@@ -121,32 +104,24 @@ end
 -- === GUI CHÍNH ===
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "SidHub"
-screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.Parent = game.CoreGui
 
 -- === LOADING SCREEN ===
 local loadingFrame = Instance.new("Frame")
 loadingFrame.Parent = screenGui
-loadingFrame.Size = UDim2.new(0, 380, 0, 160)
-loadingFrame.Position = UDim2.new(0.5, -190, 0.5, -80)
+loadingFrame.Size = UDim2.new(0, 350, 0, 140)
+loadingFrame.Position = UDim2.new(0.5, -175, 0.5, -70)
 loadingFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 26)
 loadingFrame.BackgroundTransparency = 0.05
 loadingFrame.BorderSizePixel = 0
-loadingFrame.ZIndex = 10
 
 local loadingCorner = Instance.new("UICorner")
-loadingCorner.CornerRadius = UDim.new(0, 16)
+loadingCorner.CornerRadius = UDim.new(0, 14)
 loadingCorner.Parent = loadingFrame
-
-local loadingGlow = Instance.new("UIStroke")
-loadingGlow.Color = Color3.fromRGB(80, 80, 140)
-loadingGlow.Thickness = 1.5
-loadingGlow.Transparency = 0.5
-loadingGlow.Parent = loadingFrame
 
 local loadingTitle = Instance.new("TextLabel")
 loadingTitle.Parent = loadingFrame
-loadingTitle.Size = UDim2.new(1, 0, 0, 45)
+loadingTitle.Size = UDim2.new(1, 0, 0, 40)
 loadingTitle.Position = UDim2.new(0, 0, 0.15, 0)
 loadingTitle.BackgroundTransparency = 1
 loadingTitle.Text = "SIDHUB PREMIUM"
@@ -171,16 +146,12 @@ progressFill.Size = UDim2.new(0, 0, 1, 0)
 progressFill.BackgroundColor3 = Color3.fromRGB(0, 160, 255)
 progressFill.BorderSizePixel = 0
 
-local progressFillCorner = Instance.new("UICorner")
-progressFillCorner.CornerRadius = UDim.new(1, 0)
-progressFillCorner.Parent = progressFill
-
 local loadingText = Instance.new("TextLabel")
 loadingText.Parent = loadingFrame
 loadingText.Size = UDim2.new(1, 0, 0, 20)
-loadingText.Position = UDim2.new(0, 0, 0.72, 0)
+loadingText.Position = UDim2.new(0, 0, 0.75, 0)
 loadingText.BackgroundTransparency = 1
-loadingText.Text = "INITIALIZING... 0%"
+loadingText.Text = "LOADING... 0%"
 loadingText.TextColor3 = Color3.fromRGB(160, 160, 200)
 loadingText.TextSize = 11
 loadingText.Font = Enum.Font.Gotham
@@ -198,41 +169,41 @@ iconBtn.TextSize = 26
 iconBtn.Font = Enum.Font.GothamBold
 iconBtn.BorderSizePixel = 0
 iconBtn.Visible = false
+iconBtn.Draggable = true
+iconBtn.Active = true
 
 local iconCorner = Instance.new("UICorner")
 iconCorner.CornerRadius = UDim.new(1, 0)
 iconCorner.Parent = iconBtn
 
--- === MAIN WINDOW (KHÔNG KÉO ĐƯỢC) ===
+-- === MAIN WINDOW (CÓ THỂ KÉO) ===
 local mainFrame = Instance.new("Frame")
 mainFrame.Parent = screenGui
-mainFrame.Size = UDim2.new(0, 540, 0, 460)
-mainFrame.Position = UDim2.new(0.5, -270, 0.5, -230)
+mainFrame.Size = UDim2.new(0, 550, 0, 470)
+mainFrame.Position = UDim2.new(0.5, -275, 0.5, -235)
 mainFrame.BackgroundColor3 = Color3.fromRGB(13, 13, 22)
 mainFrame.BackgroundTransparency = 0.08
 mainFrame.Visible = false
+mainFrame.Draggable = true
+mainFrame.Active = true
 mainFrame.BorderSizePixel = 0
 
 local mainCorner = Instance.new("UICorner")
-mainCorner.CornerRadius = UDim.new(0, 16)
+mainCorner.CornerRadius = UDim.new(0, 14)
 mainCorner.Parent = mainFrame
 
-local mainGlow = Instance.new("UIStroke")
-mainGlow.Color = Color3.fromRGB(100, 100, 150)
-mainGlow.Thickness = 1.5
-mainGlow.Transparency = 0.5
-mainGlow.Parent = mainFrame
-
--- === HEADER (TIÊU ĐỀ) ===
+-- === HEADER ===
 local headerFrame = Instance.new("Frame")
 headerFrame.Parent = mainFrame
 headerFrame.Size = UDim2.new(1, 0, 0, 55)
 headerFrame.BackgroundColor3 = Color3.fromRGB(23, 23, 35)
 headerFrame.BackgroundTransparency = 0.2
 headerFrame.BorderSizePixel = 0
+headerFrame.Draggable = true
+headerFrame.Active = true
 
 local headerCorner = Instance.new("UICorner")
-headerCorner.CornerRadius = UDim.new(0, 16)
+headerCorner.CornerRadius = UDim.new(0, 14)
 headerCorner.Parent = headerFrame
 
 local headerIcon = Instance.new("TextLabel")
@@ -256,17 +227,7 @@ headerTitle.TextSize = 18
 headerTitle.Font = Enum.Font.GothamBold
 headerTitle.TextXAlignment = Enum.TextXAlignment.Left
 
-local versionLabel = Instance.new("TextLabel")
-versionLabel.Parent = headerFrame
-versionLabel.Size = UDim2.new(0, 80, 1, 0)
-versionLabel.Position = UDim2.new(1, -110, 0, 0)
-versionLabel.BackgroundTransparency = 1
-versionLabel.Text = "v1.0"
-versionLabel.TextColor3 = Color3.fromRGB(100, 100, 140)
-versionLabel.TextSize = 12
-versionLabel.Font = Enum.Font.Gotham
-versionLabel.TextXAlignment = Enum.TextXAlignment.Right
-
+-- NÚT X (ĐÓNG GUI)
 local closeBtn = Instance.new("TextButton")
 closeBtn.Parent = headerFrame
 closeBtn.Size = UDim2.new(0, 40, 1, 0)
@@ -277,23 +238,23 @@ closeBtn.TextColor3 = Color3.fromRGB(220, 80, 80)
 closeBtn.TextSize = 18
 closeBtn.Font = Enum.Font.GothamBold
 
--- === CATEGORY TABS ===
+-- === TABS ===
 local tabFrame = Instance.new("Frame")
 tabFrame.Parent = mainFrame
-tabFrame.Size = UDim2.new(1, 0, 0, 40)
+tabFrame.Size = UDim2.new(1, 0, 0, 45)
 tabFrame.Position = UDim2.new(0, 0, 0, 55)
 tabFrame.BackgroundTransparency = 1
 
-local tabs = {"COMBAT", "VISUAL", "MOVEMENT", "UTILITY"}
+local tabs = {" COMBAT", " VISUAL", " MOVEMENT", " UTILITY"}
 local tabButtons = {}
-local currentTab = "COMBAT"
+local contentContainers = {}
 
-local function createTab(name, pos)
+for i, tabName in ipairs(tabs) do
     local tab = Instance.new("TextButton")
     tab.Parent = tabFrame
     tab.Size = UDim2.new(0.25, 0, 1, 0)
-    tab.Position = UDim2.new(pos, 0, 0, 0)
-    tab.Text = name
+    tab.Position = UDim2.new((i-1) * 0.25, 0, 0, 0)
+    tab.Text = tabName
     tab.TextColor3 = Color3.fromRGB(180, 180, 220)
     tab.TextSize = 13
     tab.Font = Enum.Font.GothamSemibold
@@ -302,57 +263,50 @@ local function createTab(name, pos)
     
     local indicator = Instance.new("Frame")
     indicator.Parent = tab
-    indicator.Size = UDim2.new(0.8, 0, 0, 3)
-    indicator.Position = UDim2.new(0.1, 0, 1, -3)
+    indicator.Size = UDim2.new(0.6, 0, 0, 3)
+    indicator.Position = UDim2.new(0.2, 0, 1, -3)
     indicator.BackgroundColor3 = Color3.fromRGB(0, 160, 255)
     indicator.BorderSizePixel = 0
-    indicator.Visible = false
+    indicator.Visible = (i == 1)
+    
+    local container = Instance.new("ScrollingFrame")
+    container.Parent = mainFrame
+    container.Size = UDim2.new(1, -20, 1, -115)
+    container.Position = UDim2.new(0, 10, 0, 105)
+    container.BackgroundTransparency = 1
+    container.CanvasSize = UDim2.new(0, 0, 0, 0)
+    container.ScrollBarThickness = 4
+    container.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 120)
+    container.Visible = (i == 1)
+    
+    local containerLayout = Instance.new("UIListLayout")
+    containerLayout.Parent = container
+    containerLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    containerLayout.Padding = UDim.new(0, 8)
+    
+    tabButtons[i] = {tab = tab, indicator = indicator, container = container, layout = containerLayout}
+    contentContainers[i] = container
     
     tab.MouseButton1Click:Connect(function()
-        for _, t in pairs(tabButtons) do
-            t.indicator.Visible = false
-            t.TextColor3 = Color3.fromRGB(180, 180, 220)
+        for j, btn in pairs(tabButtons) do
+            btn.indicator.Visible = (j == i)
+            btn.tab.TextColor3 = (j == i) and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(180, 180, 220)
+            btn.container.Visible = (j == i)
         end
-        indicator.Visible = true
-        tab.TextColor3 = Color3.fromRGB(255, 255, 255)
-        currentTab = name
     end)
-    
-    return {button = tab, indicator = indicator}
 end
-
-for i, name in ipairs(tabs) do
-    tabButtons[name] = createTab(name, (i-1) * 0.25)
-end
-tabButtons["COMBAT"].indicator.Visible = true
-tabButtons["COMBAT"].button.TextColor3 = Color3.fromRGB(255, 255, 255)
-
--- === CONTENT AREA ===
-local contentFrame = Instance.new("ScrollingFrame")
-contentFrame.Parent = mainFrame
-contentFrame.Size = UDim2.new(1, -20, 1, -115)
-contentFrame.Position = UDim2.new(0, 10, 0, 100)
-contentFrame.BackgroundTransparency = 1
-contentFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-contentFrame.ScrollBarThickness = 4
-contentFrame.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 120)
-
-local contentLayout = Instance.new("UIListLayout")
-contentLayout.Parent = contentFrame
-contentLayout.SortOrder = Enum.SortOrder.LayoutOrder
-contentLayout.Padding = UDim.new(0, 8)
 
 -- === STATUS BAR ===
 local statusBar = Instance.new("Frame")
 statusBar.Parent = mainFrame
-statusBar.Size = UDim2.new(1, 0, 0, 30)
-statusBar.Position = UDim2.new(0, 0, 1, -30)
+statusBar.Size = UDim2.new(1, 0, 0, 28)
+statusBar.Position = UDim2.new(0, 0, 1, -28)
 statusBar.BackgroundColor3 = Color3.fromRGB(18, 18, 28)
 statusBar.BackgroundTransparency = 0.3
 statusBar.BorderSizePixel = 0
 
 local statusCorner = Instance.new("UICorner")
-statusCorner.CornerRadius = UDim.new(0, 16)
+statusCorner.CornerRadius = UDim.new(0, 14)
 statusCorner.Parent = statusBar
 
 local statusText = Instance.new("TextLabel")
@@ -366,16 +320,15 @@ statusText.TextSize = 11
 statusText.Font = Enum.Font.Gotham
 statusText.TextXAlignment = Enum.TextXAlignment.Left
 
--- === HÀM TẠO NÚT CHUYÊN NGHIỆP ===
-local function createFeatureButton(name, desc, icon, category, order)
+-- === HÀM TẠO NÚT TÍNH NĂNG ===
+local function createFeatureButton(container, name, desc, icon)
     local btn = Instance.new("TextButton")
-    btn.Parent = contentFrame
+    btn.Parent = container
     btn.Size = UDim2.new(1, -10, 0, 52)
     btn.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
     btn.BackgroundTransparency = 0.3
     btn.Text = ""
     btn.BorderSizePixel = 0
-    btn.LayoutOrder = order
     
     local btnCorner = Instance.new("UICorner")
     btnCorner.CornerRadius = UDim.new(0, 10)
@@ -459,47 +412,59 @@ local function createFeatureButton(name, desc, icon, category, order)
     return btn
 end
 
--- === DANH SÁCH TÍNH NĂNG ===
-local combatFeatures = {
-    {name = "AIM LOCK", desc = "Auto lock onto closest enemy", icon = "🎯"},
-    {name = "SILENT AIM", desc = "Invisible aim assistance", icon = "🔇"},
-    {name = "TRIGGER BOT", desc = "Auto shoot when on target", icon = "🔫"},
-}
+-- === THÊM TÍNH NĂNG VÀO TỪNG TAB ===
+local combatContainer = tabButtons[1].container
+local visualContainer = tabButtons[2].container
+local movementContainer = tabButtons[3].container
+local utilityContainer = tabButtons[4].container
 
-local visualFeatures = {
-    {name = "ESP PLAYER", desc = "Show players through walls", icon = "👁️"},
-    {name = "ESP ITEM", desc = "Show lootable items", icon = "📦"},
-    {name = "CHAMS", desc = "Colored characters", icon = "🌈"},
-}
+createFeatureButton(combatContainer, "AIM LOCK", "Auto lock onto closest enemy", "🎯")
+createFeatureButton(combatContainer, "SILENT AIM", "Invisible aim assistance", "🔇")
+createFeatureButton(combatContainer, "TRIGGER BOT", "Auto shoot when on target", "🔫")
 
-local movementFeatures = {
-    {name = "INFINITE JUMP", desc = "Jump infinitely in air", icon = "🦘"},
-    {name = "FLY", desc = "Free flight mode", icon = "✈️"},
-    {name = "SPEED", desc = "Increase walk speed", icon = "⚡"},
-}
+createFeatureButton(visualContainer, "ESP PLAYER", "Show players through walls", "👁️")
+createFeatureButton(visualContainer, "ESP ITEM", "Show lootable items", "📦")
+createFeatureButton(visualContainer, "CHAMS", "Colored characters", "🌈")
 
-local utilityFeatures = {
-    {name = "AUTO CLICKER", desc = "Auto mouse clicker", icon = "🖱️"},
-    {name = "NO CLIP", desc = "Walk through walls", icon = "🚪"},
-    {name = "FULL BRIGHT", desc = "Remove shadows", icon = "💡"},
-}
+createFeatureButton(movementContainer, "INFINITE JUMP", "Jump infinitely in air", "🦘")
+createFeatureButton(movementContainer, "FLY", "Free flight mode", "✈️")
+createFeatureButton(movementContainer, "SPEED HACK", "Increase walk speed", "⚡")
+
+createFeatureButton(utilityContainer, "AUTO CLICKER", "Auto mouse clicker", "🖱️")
+createFeatureButton(utilityContainer, "NO CLIP", "Walk through walls", "🚪")
+createFeatureButton(utilityContainer, "FULL BRIGHT", "Remove shadows", "💡")
+
+-- Cập nhật CanvasSize cho từng container
+local function updateCanvas(container)
+    local layout = container:FindFirstChildWhichIsA("UIListLayout")
+    if layout then
+        container.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y)
+    end
+end
+
+for _, tab in pairs(tabButtons) do
+    tab.container.ChildAdded:Connect(function()
+        task.wait(0.1)
+        updateCanvas(tab.container)
+    end)
+    updateCanvas(tab.container)
+end
 
 -- === LOADING ANIMATION ===
 local function animateLoading()
-    local steps = {0, 10, 25, 45, 65, 80, 95, 100}
+    local steps = {0, 15, 35, 55, 75, 90, 100}
     local texts = {
         "INITIALIZING... 0%",
-        "LOADING CORE MODULES... 10%",
-        "CONFIGURING INTERFACE... 25%",
-        "LOADING FEATURES... 45%",
-        "ESTABLISHING CONNECTION... 65%",
-        "FINALIZING... 80%",
-        "VERIFYING... 95%",
-        "READY! 100%"
+        "LOADING CORE... 15%",
+        "CONFIGURING GUI... 35%",
+        "LOADING MODULES... 55%",
+        "FINALIZING... 75%",
+        "VERIFYING... 90%",
+        "COMPLETE! 100%"
     }
     
     for i, percent in ipairs(steps) do
-        TweenService:Create(progressFill, TweenInfo.new(0.1), {Size = UDim2.new(percent / 100, 0, 1, 0)}):Play()
+        TweenService:Create(progressFill, TweenInfo.new(0.15), {Size = UDim2.new(percent / 100, 0, 1, 0)}):Play()
         loadingText.Text = texts[i]
         task.wait(0.12)
     end
@@ -515,6 +480,7 @@ local function animateLoading()
     TweenService:Create(iconBtn, TweenInfo.new(0.3), {BackgroundTransparency = 0.1}):Play()
 end
 
+-- === XỬ LÝ NÚT ===
 closeBtn.MouseButton1Click:Connect(function()
     mainFrame.Visible = false
     statusText.Text = "● HACK DISABLED"
@@ -525,10 +491,5 @@ end)
 iconBtn.MouseButton1Click:Connect(function()
     mainFrame.Visible = not mainFrame.Visible
 end)
-
--- Tạo các nút tính năng (có thể thêm sau)
-for _, feat in ipairs(combatFeatures) do
-    createFeatureButton(feat.name, feat.desc, feat.icon, "COMBAT", nil)
-end
 
 animateLoading()
