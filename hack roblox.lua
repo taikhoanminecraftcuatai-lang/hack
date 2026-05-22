@@ -159,8 +159,6 @@ end
 -- Độ chính xác: Cực cao, không rung, lock cứng
 --========================
 
-local RunService = game:GetService("RunService")
-local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
@@ -575,9 +573,19 @@ end
 
 -- Khởi tạo và export
 local AimLock = InitializeAimLock()
--- Ví dụ gán vào nút GUI:
-local myButton = Instance.new("TextButton")
-myButton.Text = "AIM LOCK"
-myButton.MouseButton1Click:Connect(function()
+
+-- === THÊM NÚT AIM LOCK VÀO GUI ===
+local aimBtn = addButton("AIM LOCK", "-", Color3.fromRGB(80, 50, 120), function()
     AimLock.toggle()
+    if AimLock.isEnabled() then
+        statusText.Text = "● AIM LOCK: ON"
+        aimBtn.BackgroundColor3 = Color3.fromRGB(100, 70, 150)
+        aimBtn.Text = "     AIM LOCK [ON]"
+    else
+        statusText.Text = "● AIM LOCK: OFF"
+        aimBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+        aimBtn.Text = "     AIM LOCK"
+    end
+    task.wait(1.5)
+    statusText.Text = "● READY"
 end)
