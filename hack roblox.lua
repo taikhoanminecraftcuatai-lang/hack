@@ -1,5 +1,5 @@
 --========================
--- MINI GUI PRO + AIM LOCK (CHUYÊN NGHIỆP)
+-- MINI GUI PRO + AIM LOCK + INFINITE JUMP
 --========================
 local player = game.Players.LocalPlayer
 local TweenService = game:GetService("TweenService")
@@ -13,7 +13,7 @@ screenGui.Name = "MiniGUIPro"
 screenGui.Parent = game.CoreGui
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
--- === NÚT MỞ GUI (CÓ HIỆU ỨNG) ===
+-- === NÚT MỞ GUI ===
 local openBtn = Instance.new("TextButton")
 openBtn.Name = "OpenBtn"
 openBtn.Parent = screenGui
@@ -33,7 +33,6 @@ local openCorner = Instance.new("UICorner")
 openCorner.CornerRadius = UDim.new(1, 0)
 openCorner.Parent = openBtn
 
--- Hiệu ứng hover
 openBtn.MouseEnter:Connect(function()
     TweenService:Create(openBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(50, 50, 70), BackgroundTransparency = 0.05}):Play()
 end)
@@ -45,8 +44,8 @@ end)
 local mainFrame = Instance.new("Frame")
 mainFrame.Name = "MainFrame"
 mainFrame.Parent = screenGui
-mainFrame.Size = UDim2.new(0, 280, 0, 380)
-mainFrame.Position = UDim2.new(0.02, 60, 0.5, -190)
+mainFrame.Size = UDim2.new(0, 280, 0, 420)
+mainFrame.Position = UDim2.new(0.02, 60, 0.5, -210)
 mainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 28)
 mainFrame.BackgroundTransparency = 0.12
 mainFrame.Visible = false
@@ -99,7 +98,7 @@ closeBtn.TextColor3 = Color3.fromRGB(220, 80, 80)
 closeBtn.TextSize = 16
 closeBtn.Font = Enum.Font.GothamBold
 
--- === KHU VỰC NỘI DUNG (SCROLLING) ===
+-- === KHU VỰC NỘI DUNG ===
 local content = Instance.new("ScrollingFrame")
 content.Parent = mainFrame
 content.Size = UDim2.new(1, -16, 1, -85)
@@ -238,13 +237,12 @@ local function createButton(text, icon, color, callback)
 end
 
 --========================
--- AIM LOCK THỰC TẾ
+-- AIM LOCK
 --========================
 local aimLockActive = false
 local currentTarget = nil
 local aimConnection = nil
 
--- Tìm người chơi gần nhất
 local function findClosestPlayer()
     local character = player.Character
     if not character then return nil end
@@ -274,7 +272,6 @@ local function findClosestPlayer()
     return closest
 end
 
--- Lock camera vào đầu
 local function lockOntoHead(target)
     if not target then return end
     local targetChar = target.Character
@@ -289,7 +286,6 @@ local function lockOntoHead(target)
     end
 end
 
--- Vòng lặp AIM LOCK
 local function startAimLock()
     if aimConnection then aimConnection:Disconnect() end
     aimConnection = RunService.RenderStepped:Connect(function()
@@ -310,7 +306,38 @@ local function startAimLock()
     end)
 end
 
--- Tạo nút AIM LOCK
+--========================
+-- INFINITE JUMP
+--========================
+local infiniteJumpActive = false
+local jumpConnection = nil
+
+local function onJumpRequest()
+    if not infiniteJumpActive then return end
+    local char = player.Character
+    if not char then return end
+    local hum = char:FindFirstChild("Humanoid")
+    if not hum then return end
+    if hum.FloorMaterial == Enum.Material.Air then
+        hum:ChangeState(Enum.HumanoidStateType.Jumping)
+    end
+end
+
+local function startInfiniteJump()
+    if jumpConnection then jumpConnection:Disconnect() end
+    jumpConnection = UserInputService.JumpRequest:Connect(onJumpRequest)
+end
+
+local function stopInfiniteJump()
+    if jumpConnection then
+        jumpConnection:Disconnect()
+        jumpConnection = nil
+    end
+end
+
+--========================
+-- TẠO NÚT
+--========================
 local aimLockBtn = createButton("AIM LOCK", "🎯", Color3.fromRGB(70, 50, 110), function(active)
     aimLockActive = active
     if active then
@@ -322,6 +349,21 @@ local aimLockBtn = createButton("AIM LOCK", "🎯", Color3.fromRGB(70, 50, 110),
     end
     task.wait(1.5)
     if not aimLockActive then
+        statusText.Text = "● READY"
+    end
+end)
+
+local infiniteJumpBtn = createButton("INFINITE JUMP", "🦘", Color3.fromRGB(80, 110, 70), function(active)
+    infiniteJumpActive = active
+    if active then
+        startInfiniteJump()
+        statusText.Text = "● INFINITE JUMP: ACTIVATED"
+    else
+        stopInfiniteJump()
+        statusText.Text = "● INFINITE JUMP: DEACTIVATED"
+    end
+    task.wait(1.5)
+    if not infiniteJumpActive and not aimLockActive then
         statusText.Text = "● READY"
     end
 end)
@@ -349,9 +391,12 @@ openBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- Cleanup khi nhân vật respawn
+-- === XỬ LÝ RESPAWN ===
 player.CharacterAdded:Connect(function()
     if aimLockActive then
         currentTarget = nil
+    end
+    if infiniteJumpActive then
+        -- Không cần reset gì cả
     end
 end)
