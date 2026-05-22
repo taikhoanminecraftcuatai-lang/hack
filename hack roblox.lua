@@ -237,31 +237,121 @@ local function createButton(text, icon, color, callback)
 end
 
 --========================
--- AIM LOCK
+-- AIM LOCK PRO MAX
+-- Version: 5.0
+-- Mô tả: Tự động khóa camera vào đầu người chơi gần nhất
+-- Độ chính xác: Cực cao, không rung, lock cứng
+-- Không dùng goto
 --========================
-local aimLockActive = false
-local currentTarget = nil
-local aimConnection = nil
 
+local player = game.Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+
+-- ==================== CẤU HÌNH ====================
+local config = {
+    enabled = false,
+    maxDistance = 300,              -- Khoảng cách tối đa (studs)
+    priorityMode = "Closest",       -- "Closest" hoặc "LowestHealth"
+    aimPart = "Head",               -- "Head", "UpperTorso", "HumanoidRootPart"
+    lockSmoothness = 0,             -- 0 = cứng, 1-10 = mượt
+    verticalOffset = 0,
+    horizontalOffset = 0,
+    checkLineOfSight = false,
+    autoSwitchTarget = true,
+    ignoreTeam = false,
+    showDistance = false,
+    toggleKey = Enum.KeyCode.K,
+}
+
+-- ==================== BIẾN ====================
+local state = {
+    isActive = false,
+    currentTarget = nil,
+    currentDistance = 0,
+    lockConnection = nil,
+}
+
+-- ==================== HÀM TIỆN ÍCH ====================
+local function getDistance(pos1, pos2)
+    return (pos1 - pos2).Magnitude
+end
+
+local function getHealthPercent(humanoid)
+    if not humanoid then return 100 end
+    return (humanoid.Health / humanoid.MaxHealth) * 100
+end
+
+local function isValidTarget(targetPlayer)
+    if not targetPlayer then return false end
+    if targetPlayer == player then return false end
+    
+    if config.ignoreTeam and targetPlayer.Team and player.Team then
+        if targetPlayer.Team == player.Team then
+            return false
+        end
+    end
+    
+    local character = targetPlayer.Character
+    if not character then return false end
+    
+    local humanoid = character:FindFirstChild("Humanoid")
+    if not humanoid then return false end
+    if humanoid.Health <= 0 then return false end
+    
+    local aimPart = character:FindFirstChild(config.aimPart)
+    if not aimPart then
+        aimPart = character:FindFirstChild("Head")
+        if not aimPart then
+            return false
+        end
+    end
+    
+    return true, humanoid, aimPart
+end
+
+local function getAimPosition(targetPlayer)
+    if not targetPlayer or not targetPlayer.Character then
+        return nil
+    end
+    
+    local aimPart = targetPlayer.Character:FindFirstChild(config.aimPart)
+    if not aimPart then
+        aimPart = targetPlayer.Character:FindFirstChild("Head")
+        if not aimPart then
+            return nil
+        end
+    end
+    
+    if not aimPart:IsA("BasePart") then
+        return nil
+    end
+    
+    return aimPart.Position + Vector3.new(config.horizontalOffset, config.verticalOffset, 0)
+end
+
+-- ==================== TÌM MỤC TIÊU ====================
 local function findClosestPlayer()
-    local character = player.Character
-    if not character then return nil end
-    local root = character:FindFirstChild("HumanoidRootPart")
-    if not root then return nil end
-    local myPos = root.Position
+    local myChar = player.Character
+    if not myChar then return nil, 0 end
+    
+    local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return nil, 0 end
+    
+    local myPos = myRoot.Position
     local closest = nil
-    local closestDist = 300
+    local closestDist = config.maxDistance + 1
     
     for _, other in pairs(Players:GetPlayers()) do
         if other ~= player then
-            local otherChar = other.Character
-            if otherChar then
+            local isValid = isValidTarget(other)
+            if isValid then
+                local otherChar = other.Character
                 local otherRoot = otherChar:FindFirstChild("HumanoidRootPart")
-                local otherHead = otherChar:FindFirstChild("Head")
-                local otherHum = otherChar:FindFirstChild("Humanoid")
-                if otherRoot and otherHead and otherHum and otherHum.Health > 0 then
-                    local dist = (myPos - otherRoot.Position).Magnitude
-                    if dist < closestDist then
+                if otherRoot then
+                    local dist = getDistance(myPos, otherRoot.Position)
+                    if dist < closestDist and dist <= config.maxDistance then
                         closestDist = dist
                         closest = other
                     end
@@ -269,72 +359,488 @@ local function findClosestPlayer()
             end
         end
     end
-    return closest
+    
+    return closest, closestDist
 end
 
-local function lockOntoHead(target)
-    if not target then return end
-    local targetChar = target.Character
-    if not targetChar then return end
-    local head = targetChar:FindFirstChild("Head")
-    if not head then return end
+local function findLowestHealthPlayer()
+    local myChar = player.Character
+    if not myChar then return nil, 0 end
     
+    local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return nil, 0 end
+    
+    local myPos = myRoot.Position
+    local lowest = nil
+    local lowestHealth = 101
+    local lowestDist = config.maxDistance + 1
+    
+    for _, other in pairs(Players:GetPlayers()) do
+        if other ~= player then
+            local isValid, humanoid = isValidTarget(other)
+            if isValid then
+                local otherChar = other.Character
+                local otherRoot = otherChar:FindFirstChild("HumanoidRootPart")
+                if otherRoot then
+                    local dist = getDistance(myPos, otherRoot.Position)
+                    if dist <= config.maxDistance then
+                        local healthPercent = getHealthPercent(humanoid)
+                        if healthPercent < lowestHealth then
+                            lowestHealth = healthPercent
+                            lowest = other
+                            lowestDist = dist
+                        end
+                    end
+                end
+            end
+        end
+    end
+    
+    return lowest, lowestDist
+end
+
+local function findBestTarget()
+    if config.priorityMode == "Closest" then
+        return findClosestPlayer()
+    else
+        return findLowestHealthPlayer()
+    end
+end
+
+-- ==================== LOCK CAMERA ====================
+local function lockCameraHard(targetPosition)
     local camera = workspace.CurrentCamera
-    if camera then
-        local cameraPos = camera.CFrame.Position
-        camera.CFrame = CFrame.new(cameraPos, head.Position)
+    if not camera or not targetPosition then
+        return false
+    end
+    
+    local cameraPos = camera.CFrame.Position
+    camera.CFrame = CFrame.new(cameraPos, targetPosition)
+    return true
+end
+
+local function lockCameraSmooth(targetPosition)
+    local camera = workspace.CurrentCamera
+    if not camera or not targetPosition then
+        return false
+    end
+    
+    local currentCF = camera.CFrame
+    local targetCF = CFrame.new(currentCF.Position, targetPosition)
+    local smoothFactor = config.lockSmoothness / 10
+    camera.CFrame = currentCF:Lerp(targetCF, smoothFactor)
+    return true
+end
+
+local function lockOntoTarget(targetPlayer)
+    if not targetPlayer then
+        return false
+    end
+    
+    local aimPos = getAimPosition(targetPlayer)
+    if not aimPos then
+        return false
+    end
+    
+    if config.lockSmoothness <= 0 then
+        return lockCameraHard(aimPos)
+    else
+        return lockCameraSmooth(aimPos)
+    end
+end
+
+-- ==================== QUẢN LÝ TARGET ====================
+local function isCurrentTargetValid()
+    if not state.currentTarget then
+        return false
+    end
+    return isValidTarget(state.currentTarget)
+end
+
+local function switchToNewTarget()
+    local newTarget, distance = findBestTarget()
+    if newTarget then
+        state.currentTarget = newTarget
+        state.currentDistance = distance
+        return true
+    end
+    state.currentTarget = nil
+    return false
+end
+
+-- ==================== VÒNG LẶP CHÍNH ====================
+local function updateAimLock()
+    if not state.isActive then
+        return
+    end
+    
+    if not isCurrentTargetValid() then
+        switchToNewTarget()
+    end
+    
+    if state.currentTarget then
+        lockOntoTarget(state.currentTarget)
     end
 end
 
 local function startAimLock()
-    if aimConnection then aimConnection:Disconnect() end
-    aimConnection = RunService.RenderStepped:Connect(function()
-        if aimLockActive then
-            local target = findClosestPlayer()
-            if target then
-                currentTarget = target
-                lockOntoHead(target)
-                statusText.Text = "● AIM LOCK: ON → " .. target.Name
-            else
-                statusText.Text = "● AIM LOCK: ON (NO TARGET)"
-            end
-        else
-            if statusText.Text:find("AIM LOCK") then
-                statusText.Text = "● READY"
-            end
-        end
-    end)
+    if state.lockConnection then
+        state.lockConnection:Disconnect()
+    end
+    state.lockConnection = RunService.RenderStepped:Connect(updateAimLock)
 end
 
---========================
--- INFINITE JUMP
---========================
-local infiniteJumpActive = false
-local jumpConnection = nil
+local function stopAimLock()
+    if state.lockConnection then
+        state.lockConnection:Disconnect()
+        state.lockConnection = nil
+    end
+    state.currentTarget = nil
+end
 
-local function onJumpRequest()
-    if not infiniteJumpActive then return end
+-- ==================== BẬT/TẮT ====================
+local function enable()
+    if state.isActive then
+        return
+    end
+    
+    state.isActive = true
+    switchToNewTarget()
+    startAimLock()
+    
+    print("[AIM LOCK] ĐÃ BẬT | Chế độ: " .. config.priorityMode .. " | Khoảng cách: " .. config.maxDistance)
+end
+
+local function disable()
+    if not state.isActive then
+        return
+    end
+    
+    state.isActive = false
+    stopAimLock()
+    
+    print("[AIM LOCK] ĐÃ TẮT")
+end
+
+local function toggle()
+    if state.isActive then
+        disable()
+    else
+        enable()
+    end
+end
+
+-- ==================== PHÍM TẮT ====================
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then
+        return
+    end
+    
+    if input.KeyCode == config.toggleKey then
+        toggle()
+        
+        -- Hiển thị thông báo
+        local notif = Instance.new("TextLabel")
+        notif.Parent = game.CoreGui
+        notif.Size = UDim2.new(0, 150, 0, 35)
+        notif.Position = UDim2.new(0.5, -75, 0.85, 0)
+        notif.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+        notif.BackgroundTransparency = 0.4
+        notif.TextColor3 = state.isActive and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 100, 100)
+        notif.Font = Enum.Font.GothamBold
+        notif.TextSize = 12
+        notif.Text = state.isActive and "AIM LOCK ON" or "AIM LOCK OFF"
+        Instance.new("UICorner", notif).CornerRadius = UDim.new(0, 8)
+        task.wait(1)
+        notif:Destroy()
+    end
+end)
+
+-- ==================== XỬ LÝ RESPAWN ====================
+player.CharacterAdded:Connect(function()
+    if state.isActive then
+        task.wait(0.5)
+        switchToNewTarget()
+    end
+end)
+
+Players.PlayerRemoving:Connect(function(leavingPlayer)
+    if state.isActive and state.currentTarget == leavingPlayer then
+        switchToNewTarget()
+    end
+end)
+
+-- ==================== KHỞI TẠO ====================
+print("=" .. string.rep("=", 50))
+print("AIM LOCK PRO MAX LOADED")
+print("Version: 5.0")
+print("Ưu tiên: " .. config.priorityMode)
+print("Khoảng cách: " .. config.maxDistance)
+print("Bộ phận aim: " .. config.aimPart)
+print("Phím tắt: " .. tostring(config.toggleKey))
+print("=" .. string.rep("=", 50))
+
+-- ==================== EXPORT ====================
+return {
+    toggle = toggle,
+    enable = enable,
+    disable = disable,
+    isEnabled = function() return state.isActive end,
+    getCurrentTarget = function() return state.currentTarget end,
+    setConfig = function(newConfig)
+        for k, v in pairs(newConfig) do
+            if config[k] ~= nil then
+                config[k] = v
+            end
+        end
+    end,
+    getConfig = function() return config end,
+}
+--========================
+-- INFINITE JUMP PRO MAX
+-- Version: 2.0
+-- Mô tả: Cho phép nhảy vô hạn trên không, có thể bật/tắt, tùy chỉnh lực nhảy
+-- Không dùng goto, chạy được trên mọi executor
+--========================
+
+local player = game.Players.LocalPlayer
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+-- ==================== CẤU HÌNH ====================
+local config = {
+    enabled = false,
+    jumpPower = 60,              -- Lực nhảy (mặc định 50, tăng lên để nhảy cao hơn)
+    maxJumpPower = 120,          -- Giới hạn tối đa
+    minJumpPower = 40,           -- Giới hạn tối thiểu
+    antiCheatBypass = true,      -- Chế độ tránh anti-cheat
+    airJumpOnly = true,          -- Chỉ nhảy khi đang ở trên không
+}
+
+-- ==================== BIẾN ====================
+local state = {
+    isActive = false,
+    originalJumpPower = nil,
+    jumpConnection = nil,
+    antiCheatTimer = nil,
+}
+
+-- ==================== HÀM TIỆN ÍCH ====================
+local function getHumanoid()
     local char = player.Character
-    if not char then return end
-    local hum = char:FindFirstChild("Humanoid")
+    if not char then return nil end
+    return char:FindFirstChild("Humanoid")
+end
+
+local function saveOriginalJumpPower()
+    local hum = getHumanoid()
+    if hum and state.originalJumpPower == nil then
+        state.originalJumpPower = hum.JumpPower
+    end
+end
+
+local function restoreOriginalJumpPower()
+    local hum = getHumanoid()
+    if hum and state.originalJumpPower then
+        hum.JumpPower = state.originalJumpPower
+    end
+end
+
+local function setJumpPower(value)
+    local hum = getHumanoid()
+    if hum then
+        local newValue = math.clamp(value, config.minJumpPower, config.maxJumpPower)
+        hum.JumpPower = newValue
+    end
+end
+
+-- ==================== CƠ CHẾ NHẢY ====================
+local function performJump()
+    local hum = getHumanoid()
     if not hum then return end
-    if hum.FloorMaterial == Enum.Material.Air then
+    if hum.Health <= 0 then return end
+    
+    -- Chỉ nhảy khi đang ở trên không
+    if config.airJumpOnly then
+        if hum.FloorMaterial == Enum.Material.Air then
+            hum:ChangeState(Enum.HumanoidStateType.Jumping)
+        end
+    else
+        -- Luôn cho phép nhảy (kể cả khi đang trên mặt đất)
         hum:ChangeState(Enum.HumanoidStateType.Jumping)
     end
 end
 
-local function startInfiniteJump()
-    if jumpConnection then jumpConnection:Disconnect() end
-    jumpConnection = UserInputService.JumpRequest:Connect(onJumpRequest)
+-- Chế độ tránh anti-cheat: set lực nhảy trước khi nhảy, sau đó khôi phục
+local function antiCheatJump()
+    local hum = getHumanoid()
+    if not hum then return end
+    
+    -- Lưu lực nhảy gốc
+    saveOriginalJumpPower()
+    
+    -- Set lực nhảy theo cấu hình
+    hum.JumpPower = config.jumpPower
+    
+    -- Thực hiện nhảy
+    performJump()
+    
+    -- Khôi phục lực nhảy gốc sau 0.05 giây
+    task.spawn(function()
+        task.wait(0.05)
+        if hum and state.originalJumpPower then
+            hum.JumpPower = state.originalJumpPower
+        end
+    end)
 end
 
-local function stopInfiniteJump()
-    if jumpConnection then
-        jumpConnection:Disconnect()
-        jumpConnection = nil
+-- Chế độ bình thường
+local function normalJump()
+    local hum = getHumanoid()
+    if not hum then return end
+    
+    -- Set lực nhảy
+    hum.JumpPower = config.jumpPower
+    
+    -- Thực hiện nhảy
+    performJump()
+end
+
+-- ==================== XỬ LÝ SỰ KIỆN NHẢY ====================
+local function onJumpRequest()
+    if not state.isActive then return end
+    
+    if config.antiCheatBypass then
+        antiCheatJump()
+    else
+        normalJump()
     end
 end
 
+-- ==================== BẬT/TẮT ====================
+local function enable()
+    if state.isActive then return end
+    
+    state.isActive = true
+    
+    -- Lưu lực nhảy gốc
+    saveOriginalJumpPower()
+    
+    -- Kết nối sự kiện nhảy
+    if state.jumpConnection then
+        state.jumpConnection:Disconnect()
+    end
+    state.jumpConnection = UserInputService.JumpRequest:Connect(onJumpRequest)
+    
+    print("[INFINITE JUMP] ĐÃ BẬT | Lực nhảy: " .. config.jumpPower)
+end
+
+local function disable()
+    if not state.isActive then return end
+    
+    state.isActive = false
+    
+    -- Ngắt kết nối
+    if state.jumpConnection then
+        state.jumpConnection:Disconnect()
+        state.jumpConnection = nil
+    end
+    
+    -- Khôi phục lực nhảy gốc
+    restoreOriginalJumpPower()
+    
+    print("[INFINITE JUMP] ĐÃ TẮT")
+end
+
+local function toggle()
+    if state.isActive then
+        disable()
+    else
+        enable()
+    end
+end
+
+-- ==================== TĂNG/GIẢM LỰC NHẢY ====================
+local function increasePower(amount)
+    amount = amount or 5
+    config.jumpPower = math.min(config.maxJumpPower, config.jumpPower + amount)
+    
+    if state.isActive then
+        -- Nếu đang bật, áp dụng ngay
+        local hum = getHumanoid()
+        if hum then
+            hum.JumpPower = config.jumpPower
+        end
+    end
+    
+    print("[INFINITE JUMP] Lực nhảy: " .. config.jumpPower)
+    return config.jumpPower
+end
+
+local function decreasePower(amount)
+    amount = amount or 5
+    config.jumpPower = math.max(config.minJumpPower, config.jumpPower - amount)
+    
+    if state.isActive then
+        local hum = getHumanoid()
+        if hum then
+            hum.JumpPower = config.jumpPower
+        end
+    end
+    
+    print("[INFINITE JUMP] Lực nhảy: " .. config.jumpPower)
+    return config.jumpPower
+end
+
+-- ==================== XỬ LÝ RESPAWN ====================
+player.CharacterAdded:Connect(function()
+    if state.isActive then
+        -- Lưu lại lực nhảy gốc mới
+        task.wait(0.5)
+        saveOriginalJumpPower()
+        
+        -- Đảm bảo connection vẫn hoạt động
+        if state.jumpConnection then
+            state.jumpConnection:Disconnect()
+        end
+        state.jumpConnection = UserInputService.JumpRequest:Connect(onJumpRequest)
+    end
+end)
+
+-- ==================== KHỞI TẠO ====================
+print("=" .. string.rep("=", 50))
+print("INFINITE JUMP PRO MAX LOADED")
+print("Version: 2.0")
+print("Lực nhảy mặc định: " .. config.jumpPower)
+print("Chế độ anti-cheat: " .. (config.antiCheatBypass and "BẬT" or "TẮT"))
+print("=" .. string.rep("=", 50))
+
+-- ==================== EXPORT ====================
+return {
+    toggle = toggle,
+    enable = enable,
+    disable = disable,
+    increasePower = increasePower,
+    decreasePower = decreasePower,
+    setPower = function(value)
+        config.jumpPower = math.clamp(value, config.minJumpPower, config.maxJumpPower)
+        if state.isActive then
+            local hum = getHumanoid()
+            if hum then
+                hum.JumpPower = config.jumpPower
+            end
+        end
+    end,
+    getPower = function() return config.jumpPower end,
+    isEnabled = function() return state.isActive end,
+    setConfig = function(newConfig)
+        for k, v in pairs(newConfig) do
+            if config[k] ~= nil then
+                config[k] = v
+            end
+        end
+    end
+}
 --========================
 -- TẠO NÚT
 --========================
