@@ -1,5 +1,5 @@
 --========================
--- MINI GUI + AIM LOCK PRO
+-- MINI GUI + AIM LOCK PRO (SỬA LỖI)
 --========================
 local player = game.Players.LocalPlayer
 local TweenService = game:GetService("TweenService")
@@ -26,7 +26,6 @@ openBtn.Font = Enum.Font.GothamBold
 openBtn.BorderSizePixel = 0
 openBtn.Draggable = true
 openBtn.Active = true
-openBtn.ZIndex = 1
 
 local openCorner = Instance.new("UICorner")
 openCorner.CornerRadius = UDim.new(1, 0)
@@ -43,7 +42,6 @@ mainFrame.Visible = false
 mainFrame.Draggable = true
 mainFrame.Active = true
 mainFrame.BorderSizePixel = 0
-mainFrame.ZIndex = 2
 
 local mainCorner = Instance.new("UICorner")
 mainCorner.CornerRadius = UDim.new(0, 12)
@@ -67,6 +65,7 @@ closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 closeBtn.TextSize = 14
 closeBtn.Font = Enum.Font.GothamBold
 closeBtn.BorderSizePixel = 0
+closeBtn.ZIndex = 3
 
 local closeCorner = Instance.new("UICorner")
 closeCorner.CornerRadius = UDim.new(0, 8)
@@ -83,30 +82,34 @@ title.TextColor3 = Color3.fromRGB(255, 255, 255)
 title.TextSize = 14
 title.Font = Enum.Font.GothamBold
 title.TextXAlignment = Enum.TextXAlignment.Left
+title.ZIndex = 3
 
 -- === KHU VỰC NỘI DUNG ===
 local content = Instance.new("ScrollingFrame")
 content.Parent = mainFrame
-content.Size = UDim2.new(1, -20, 1, -50)
-content.Position = UDim2.new(0, 10, 0, 42)
+content.Size = UDim2.new(1, -10, 1, -55)
+content.Position = UDim2.new(0, 5, 0, 42)
 content.BackgroundTransparency = 1
 content.CanvasSize = UDim2.new(0, 0, 0, 0)
 content.ScrollBarThickness = 4
 content.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 120)
+content.BorderSizePixel = 0
+content.ZIndex = 2
 
 local layout = Instance.new("UIListLayout")
 layout.Parent = content
 layout.SortOrder = Enum.SortOrder.LayoutOrder
-layout.Padding = UDim.new(0, 8)
+layout.Padding = UDim.new(0, 6)
 
 -- === STATUS BAR ===
 local statusBar = Instance.new("Frame")
 statusBar.Parent = mainFrame
-statusBar.Size = UDim2.new(1, 0, 0, 24)
-statusBar.Position = UDim2.new(0, 0, 1, -24)
+statusBar.Size = UDim2.new(1, 0, 0, 22)
+statusBar.Position = UDim2.new(0, 0, 1, -22)
 statusBar.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
 statusBar.BackgroundTransparency = 0.3
 statusBar.BorderSizePixel = 0
+statusBar.ZIndex = 3
 
 local statusCorner = Instance.new("UICorner")
 statusCorner.CornerRadius = UDim.new(0, 12)
@@ -136,6 +139,7 @@ local function addButton(name, icon, color, callback)
     btn.Font = Enum.Font.GothamSemibold
     btn.TextXAlignment = Enum.TextXAlignment.Left
     btn.BorderSizePixel = 0
+    btn.ZIndex = 2
     
     local btnCorner = Instance.new("UICorner")
     btnCorner.CornerRadius = UDim.new(0, 8)
@@ -190,14 +194,8 @@ local function GetDistance(pointA, pointB)
     return (pointA - pointB).Magnitude
 end
 
-local function GetHealthPercent(humanoid)
-    if not humanoid then return 100 end
-    return (humanoid.Health / humanoid.MaxHealth) * 100
-end
-
 local function IsValidTarget(targetPlayer)
-    if not targetPlayer then return false end
-    if targetPlayer == player then return false end
+    if not targetPlayer or targetPlayer == player then return false end
     
     if AimLockConfig.IgnoreTeam and targetPlayer.Team and player.Team then
         if targetPlayer.Team == player.Team then return false end
@@ -330,19 +328,6 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
     if input.KeyCode == Enum.KeyCode.K then
         ToggleAimLock()
-        local notif = Instance.new("TextLabel")
-        notif.Parent = game.CoreGui
-        notif.Size = UDim2.new(0, 150, 0, 35)
-        notif.Position = UDim2.new(0.5, -75, 0.85, 0)
-        notif.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-        notif.BackgroundTransparency = 0.4
-        notif.TextColor3 = AimLockState.IsActive and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 100, 100)
-        notif.Font = Enum.Font.GothamBold
-        notif.TextSize = 12
-        notif.Text = AimLockState.IsActive and " AIM LOCK ON" or " AIM LOCK OFF"
-        Instance.new("UICorner", notif).CornerRadius = UDim.new(0, 8)
-        task.wait(1)
-        notif:Destroy()
     end
 end)
 
@@ -378,26 +363,19 @@ end)
 
 -- === CẬP NHẬT CANVAS ===
 local function updateCanvas()
-    task.wait(0.1)
+    task.wait(0.05)
     content.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10)
 end
 
 layout.ChildAdded:Connect(updateCanvas)
 layout.ChildRemoved:Connect(updateCanvas)
+updateCanvas()
 
 -- === XỬ LÝ MỞ/ĐÓNG ===
 closeBtn.MouseButton1Click:Connect(function()
     mainFrame.Visible = false
-    statusText.Text = "● HIDDEN"
-    task.wait(0.5)
-    statusText.Text = "● READY"
 end)
 
 openBtn.MouseButton1Click:Connect(function()
     mainFrame.Visible = not mainFrame.Visible
-    if mainFrame.Visible then
-        statusText.Text = "● GUI OPENED"
-        task.wait(1)
-        statusText.Text = "● READY"
-    end
 end)
