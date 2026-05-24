@@ -84,16 +84,6 @@ content.Size = UDim2.new(1, -20, 1, -60)
 content.Position = UDim2.new(0, 10, 0, 50)
 content.BackgroundTransparency = 1
 content.Parent = mainFrame
-
---========================
--- AIM LOCK PRO MAX (CỰC MẠNH + MƯỢT)
---========================
-local player = game.Players.LocalPlayer
-local RunService = game:GetService("RunService")
-local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
-
 --========================
 -- CẤU HÌNH AIM LOCK
 --========================
