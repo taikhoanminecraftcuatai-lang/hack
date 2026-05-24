@@ -1,16 +1,12 @@
 --========================
--- SPEED TOOL PRO MAX (VÔ HẠN TỐC ĐỘ)
+-- GUI RỖNG (DÙNG makeButton)
 --========================
 local player = game.Players.LocalPlayer
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 
---========================
--- TẠO GUI
---========================
+-- Tạo GUI
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "SpeedTool"
+screenGui.Name = "MyGUI"
 screenGui.Parent = game.CoreGui
 
 -- Nút mở GUI
@@ -19,7 +15,7 @@ openBtn.Size = UDim2.new(0, 50, 0, 50)
 openBtn.Position = UDim2.new(0.02, 0, 0.5, -25)
 openBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
 openBtn.BackgroundTransparency = 0.1
-openBtn.Text = "⚡"
+openBtn.Text = "🇻🇳"
 openBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 openBtn.TextSize = 24
 openBtn.Font = Enum.Font.GothamBold
@@ -33,35 +29,35 @@ openCorner.Parent = openBtn
 
 -- Cửa sổ chính
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 320, 0, 280)
-mainFrame.Position = UDim2.new(0.02, 60, 0.5, -140)
-mainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
+mainFrame.Size = UDim2.new(0, 280, 0, 340)
+mainFrame.Position = UDim2.new(0.02, 60, 0.5, -170)
+mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
 mainFrame.BackgroundTransparency = 0.1
 mainFrame.Visible = false
 mainFrame.Draggable = true
 mainFrame.Parent = screenGui
 
 local mainCorner = Instance.new("UICorner")
-mainCorner.CornerRadius = UDim.new(0, 14)
+mainCorner.CornerRadius = UDim.new(0, 12)
 mainCorner.Parent = mainFrame
 
 -- Thanh tiêu đề
 local header = Instance.new("Frame")
 header.Size = UDim2.new(1, 0, 0, 40)
-header.BackgroundColor3 = Color3.fromRGB(25, 25, 38)
+header.BackgroundColor3 = Color3.fromRGB(30, 30, 42)
 header.BackgroundTransparency = 0.2
 header.Draggable = true
 header.Parent = mainFrame
 
 local headerCorner = Instance.new("UICorner")
-headerCorner.CornerRadius = UDim.new(0, 14)
+headerCorner.CornerRadius = UDim.new(0, 12)
 headerCorner.Parent = header
 
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, -50, 1, 0)
 title.Position = UDim2.new(0, 12, 0, 0)
 title.BackgroundTransparency = 1
-title.Text = "⚡ SPEED TOOL PRO MAX"
+title.Text = " MY TOOL"
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
 title.TextSize = 14
 title.Font = Enum.Font.GothamBold
@@ -69,8 +65,8 @@ title.TextXAlignment = Enum.TextXAlignment.Left
 title.Parent = header
 
 local closeBtn = Instance.new("TextButton")
-closeBtn.Size = UDim2.new(0, 30, 1, 0)
-closeBtn.Position = UDim2.new(1, -34, 0, 0)
+closeBtn.Size = UDim2.new(0, 32, 1, 0)
+closeBtn.Position = UDim2.new(1, -36, 0, 0)
 closeBtn.BackgroundTransparency = 1
 closeBtn.Text = "✕"
 closeBtn.TextColor3 = Color3.fromRGB(220, 80, 80)
@@ -78,413 +74,84 @@ closeBtn.TextSize = 16
 closeBtn.Font = Enum.Font.GothamBold
 closeBtn.Parent = header
 
--- Khu vực nội dung
-local content = Instance.new("Frame")
-content.Size = UDim2.new(1, -20, 1, -60)
-content.Position = UDim2.new(0, 10, 0, 50)
+-- Khu vực chứa nút
+local content = Instance.new("ScrollingFrame")
+content.Size = UDim2.new(1, -16, 1, -80)
+content.Position = UDim2.new(0, 8, 0, 50)
 content.BackgroundTransparency = 1
+content.CanvasSize = UDim2.new(0, 0, 0, 0)
+content.ScrollBarThickness = 4
 content.Parent = mainFrame
 
---========================
--- NÚT SPEED
---========================
-local speedBtn = Instance.new("TextButton")
-speedBtn.Size = UDim2.new(1, 0, 0, 50)
-speedBtn.Position = UDim2.new(0, 0, 0, 0)
-speedBtn.BackgroundColor3 = Color3.fromRGB(60, 100, 140)
-speedBtn.BackgroundTransparency = 0.2
-speedBtn.Text = "⚡ SPEED [OFF]"
-speedBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-speedBtn.TextSize = 16
-speedBtn.Font = Enum.Font.GothamBold
-speedBtn.BorderSizePixel = 0
-speedBtn.Parent = content
+local layout = Instance.new("UIListLayout")
+layout.Parent = content
+layout.Padding = UDim.new(0, 8)
 
-local speedCorner = Instance.new("UICorner")
-speedCorner.CornerRadius = UDim.new(0, 10)
-speedCorner.Parent = speedBtn
+-- Thanh trạng thái
+local statusBar = Instance.new("Frame")
+statusBar.Size = UDim2.new(1, 0, 0, 24)
+statusBar.Position = UDim2.new(0, 0, 1, -24)
+statusBar.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+statusBar.BackgroundTransparency = 0.3
+statusBar.Parent = mainFrame
 
---========================
--- BẢNG NHẬP TỐC ĐỘ (VÔ HẠN)
---========================
-local speedBoxFrame = Instance.new("Frame")
-speedBoxFrame.Size = UDim2.new(1, 0, 0, 100)
-speedBoxFrame.Position = UDim2.new(0, 0, 0, 60)
-speedBoxFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
-speedBoxFrame.BackgroundTransparency = 0.2
-speedBoxFrame.BorderSizePixel = 0
-speedBoxFrame.Parent = content
+local statusText = Instance.new("TextLabel")
+statusText.Size = UDim2.new(1, -12, 1, 0)
+statusText.Position = UDim2.new(0, 10, 0, 0)
+statusText.BackgroundTransparency = 1
+statusText.Text = "● READY"
+statusText.TextColor3 = Color3.fromRGB(100, 255, 100)
+statusText.TextSize = 10
+statusText.Font = Enum.Font.Gotham
+statusText.TextXAlignment = Enum.TextXAlignment.Left
+statusText.Parent = statusBar
 
-local speedBoxCorner = Instance.new("UICorner")
-speedBoxCorner.CornerRadius = UDim.new(0, 10)
-speedBoxCorner.Parent = speedBoxFrame
-
-local speedLabel = Instance.new("TextLabel")
-speedLabel.Size = UDim2.new(1, 0, 0, 25)
-speedLabel.Position = UDim2.new(0, 0, 0, 5)
-speedLabel.BackgroundTransparency = 1
-speedLabel.Text = "⚡ NHẬP TỐC ĐỘ CHẠY (KHÔNG GIỚI HẠN)"
-speedLabel.TextColor3 = Color3.fromRGB(180, 180, 220)
-speedLabel.TextSize = 12
-speedLabel.Font = Enum.Font.GothamBold
-speedLabel.Parent = speedBoxFrame
-
--- Ô nhập số (không giới hạn)
-local speedInput = Instance.new("TextBox")
-speedInput.Size = UDim2.new(0.6, 0, 0, 40)
-speedInput.Position = UDim2.new(0.05, 0, 0.4, 0)
-speedInput.BackgroundColor3 = Color3.fromRGB(20, 20, 35)
-speedInput.TextColor3 = Color3.fromRGB(0, 200, 255)
-speedInput.TextSize = 18
-speedInput.Font = Enum.Font.GothamBold
-speedInput.Text = "100"
-speedInput.PlaceholderText = "NHẬP TỐC ĐỘ (KHÔNG GIỚI HẠN)"
-speedInput.BorderSizePixel = 0
-
-local inputCorner = Instance.new("UICorner")
-inputCorner.CornerRadius = UDim.new(0, 8)
-inputCorner.Parent = speedInput
-
-speedInput.Parent = speedBoxFrame
-
--- Nút áp dụng tốc độ
-local applyBtn = Instance.new("TextButton")
-applyBtn.Size = UDim2.new(0.25, 0, 0, 40)
-applyBtn.Position = UDim2.new(0.7, 0, 0.4, 0)
-applyBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 200)
-applyBtn.Text = "ÁP DỤNG"
-applyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-applyBtn.TextSize = 13
-applyBtn.Font = Enum.Font.GothamBold
-applyBtn.BorderSizePixel = 0
-
-local applyCorner = Instance.new("UICorner")
-applyCorner.CornerRadius = UDim.new(0, 8)
-applyCorner.Parent = applyBtn
-
-applyBtn.Parent = speedBoxFrame
-
--- Hiển thị tốc độ hiện tại
-local currentSpeedLabel = Instance.new("TextLabel")
-currentSpeedLabel.Size = UDim2.new(1, 0, 0, 25)
-currentSpeedLabel.Position = UDim2.new(0, 0, 0.85, 0)
-currentSpeedLabel.BackgroundTransparency = 1
-currentSpeedLabel.Text = "📊 TỐC ĐỘ HIỆN TẠI: 16"
-currentSpeedLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
-currentSpeedLabel.TextSize = 11
-currentSpeedLabel.Font = Enum.Font.Gotham
-currentSpeedLabel.Parent = speedBoxFrame
-
---========================
--- CẢNH BÁO TỐC ĐỘ CAO
---========================
-local warningFrame = Instance.new("Frame")
-warningFrame.Size = UDim2.new(1, 0, 0, 35)
-warningFrame.Position = UDim2.new(0, 0, 0, 170)
-warningFrame.BackgroundColor3 = Color3.fromRGB(100, 50, 50)
-warningFrame.BackgroundTransparency = 0.3
-warningFrame.BorderSizePixel = 0
-warningFrame.Visible = false
-warningFrame.Parent = content
-
-local warningCorner = Instance.new("UICorner")
-warningCorner.CornerRadius = UDim.new(0, 8)
-warningCorner.Parent = warningFrame
-
-local warningText = Instance.new("TextLabel")
-warningText.Size = UDim2.new(1, 0, 1, 0)
-warningText.BackgroundTransparency = 1
-warningText.Text = "⚠️ TỐC ĐỘ CAO DỄ BỊ ANTI CHEAT PHÁT HIỆN!"
-warningText.TextColor3 = Color3.fromRGB(255, 100, 100)
-warningText.TextSize = 11
-warningText.Font = Enum.Font.GothamBold
-warningText.Parent = warningFrame
-
---========================
--- BIẾN SPEED (VÔ HẠN)
---========================
-local speedEnabled = false
-local currentSpeed = 16
-local originalSpeed = nil
-local speedConnection = nil
-local lastSpeedCheck = 0
-
--- Lưu tốc độ gốc
-local function saveOriginalSpeed()
-    local char = player.Character
-    if not char then return end
-    local hum = char:FindFirstChild("Humanoid")
-    if hum and originalSpeed == nil then
-        originalSpeed = hum.WalkSpeed
-    end
+-- Cập nhật canvas
+local function updateCanvas()
+    task.wait(0.1)
+    content.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10)
 end
 
--- Khôi phục tốc độ gốc
-local function restoreOriginalSpeed()
-    local char = player.Character
-    if not char then return end
-    local hum = char:FindFirstChild("Humanoid")
-    if hum and originalSpeed then
-        hum.WalkSpeed = originalSpeed
-    end
-end
+layout.ChildAdded:Connect(updateCanvas)
+layout.ChildRemoved:Connect(updateCanvas)
 
--- Hàm set speed (không giới hạn trên)
-local function setSpeed(value)
-    local char = player.Character
-    if not char then return end
-    local hum = char:FindFirstChild("Humanoid")
-    if hum then
-        currentSpeed = math.floor(value)
-        if currentSpeed < 16 then currentSpeed = 16 end
-        -- KHÔNG GIỚI HẠN TỐI ĐA
-        hum.WalkSpeed = currentSpeed
-        currentSpeedLabel.Text = "📊 TỐC ĐỘ HIỆN TẠI: " .. currentSpeed
-        speedInput.Text = tostring(currentSpeed)
-        
-        if currentSpeed > 300 then
-            warningFrame.Visible = true
-        else
-            warningFrame.Visible = false
-        end
-    end
-end
-
--- Chống anti cheat: set lại speed mỗi frame
-local function antiCheatFix()
-    if not speedEnabled then return end
+-- HÀM makeButton (giống hồi trước)
+local function makeButton(text, row, col, color)
+    local btn = Instance.new("TextButton")
+    btn.Parent = content
+    btn.Size = UDim2.new(0, 120, 0, 35)
+    btn.Position = UDim2.new(0, 10 + (col - 1) * 130, 0, 10 + (row - 1) * 45)
+    btn.Text = text
+    btn.TextSize = 13
+    btn.Font = Enum.Font.GothamBold
+    btn.BackgroundColor3 = color or Color3.fromRGB(60, 60, 80)
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.BorderSizePixel = 0
+    btn.BackgroundTransparency = 0.2
     
-    local char = player.Character
-    if not char then return end
+    local btnCorner = Instance.new("UICorner")
+    btnCorner.CornerRadius = UDim.new(0, 8)
+    btnCorner.Parent = btn
     
-    local hum = char:FindFirstChild("Humanoid")
-    if not hum then return end
-    if hum.Health <= 0 then return end
-    
-    if hum.WalkSpeed ~= currentSpeed then
-        hum.WalkSpeed = currentSpeed
-    end
-end
-
--- Chống delay: phát hiện bị kéo speed
-local function antiDelayFix()
-    if not speedEnabled then return end
-    
-    local char = player.Character
-    if not char then return end
-    
-    local hum = char:FindFirstChild("Humanoid")
-    if not hum then return end
-    
-    local currentTime = tick()
-    if currentTime - lastSpeedCheck > 0.1 then
-        lastSpeedCheck = currentTime
-        if hum.WalkSpeed < currentSpeed * 0.8 and currentSpeed > 50 then
-            hum.WalkSpeed = currentSpeed
-            print("[ANTI CHEAT] Đã phát hiện và khắc phục giảm tốc độ!")
-        end
-    end
-end
-
--- Xử lý nhập tốc độ (không giới hạn)
-applyBtn.MouseButton1Click:Connect(function()
-    local inputText = speedInput.Text
-    inputText = inputText:gsub("[%,%s]", "")
-    local success, result = pcall(function()
-        return tonumber(inputText) or currentSpeed
+    -- Hiệu ứng hover
+    btn.MouseEnter:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundTransparency = 0.05}):Play()
     end)
-    if success and result then
-        local newSpeed = math.floor(result)
-        if newSpeed < 16 then newSpeed = 16 end
-        -- KHÔNG GIỚI HẠN TỐI ĐA
-        setSpeed(newSpeed)
-        print("[SPEED] Tốc độ đã set: " .. newSpeed)
-        
-        local notif = Instance.new("TextLabel")
-        notif.Parent = screenGui
-        notif.Size = UDim2.new(0, 200, 0, 35)
-        notif.Position = UDim2.new(0.5, -100, 0.85, 0)
-        notif.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-        notif.BackgroundTransparency = 0.4
-        notif.TextColor3 = Color3.fromRGB(100, 255, 100)
-        notif.Font = Enum.Font.GothamBold
-        notif.TextSize = 12
-        notif.Text = "⚡ TỐC ĐỘ: " .. newSpeed
-        Instance.new("UICorner", notif).CornerRadius = UDim.new(0, 8)
-        task.wait(1.5)
-        notif:Destroy()
-    else
-        speedInput.Text = tostring(currentSpeed)
-    end
-end)
-
--- Bật/tắt Speed
-local function enableSpeed()
-    if speedEnabled then return end
-    speedEnabled = true
-    saveOriginalSpeed()
-    setSpeed(currentSpeed)
+    btn.MouseLeave:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundTransparency = 0.2}):Play()
+    end)
     
-    if not speedConnection then
-        speedConnection = RunService.RenderStepped:Connect(function()
-            if speedEnabled then
-                antiCheatFix()
-                antiDelayFix()
-            end
-        end)
-    end
-    
-    speedBtn.Text = "⚡ SPEED [ON]"
-    speedBtn.BackgroundColor3 = Color3.fromRGB(100, 150, 200)
-    print("[SPEED] ĐÃ BẬT | Tốc độ: " .. currentSpeed)
+    return btn
 end
 
-local function disableSpeed()
-    if not speedEnabled then return end
-    speedEnabled = false
-    
-    if speedConnection then
-        speedConnection:Disconnect()
-        speedConnection = nil
-    end
-    
-    restoreOriginalSpeed()
-    
-    speedBtn.Text = "⚡ SPEED [OFF]"
-    speedBtn.BackgroundColor3 = Color3.fromRGB(60, 100, 140)
-    print("[SPEED] ĐÃ TẮT")
-end
-
-speedBtn.MouseButton1Click:Connect(function()
-    if speedEnabled then
-        disableSpeed()
-    else
-        enableSpeed()
-    end
-end)
-
--- Phím tắt L
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.KeyCode == Enum.KeyCode.L then
-        if speedEnabled then
-            disableSpeed()
-        else
-            enableSpeed()
-        end
-    end
-end)
-
--- Xử lý respawn
-player.CharacterAdded:Connect(function()
-    saveOriginalSpeed()
-    if speedEnabled then
-        task.wait(0.5)
-        setSpeed(currentSpeed)
-    end
-end)
-
--- Lưu tốc độ gốc ban đầu
-task.wait(0.5)
-saveOriginalSpeed()
-
---========================
--- MỞ/ĐÓNG GUI
---========================
+-- Mở/đóng GUI
 closeBtn.MouseButton1Click:Connect(function()
     mainFrame.Visible = false
 end)
 
 openBtn.MouseButton1Click:Connect(function()
     mainFrame.Visible = not mainFrame.Visible
-end)
---========================
--- NO CLIP (DÁN VÀO CUỐI SCRIPT LÀ XONG)
---========================
-local noclipEnabled = false
-local noclipConnection = nil
-local originalCollision = {}
-
-local function toggleNoclip()
-    noclipEnabled = not noclipEnabled
-    
-    if noclipEnabled then
-        -- Lưu trạng thái gốc
-        local char = player.Character
-        if char then
-            for _, part in pairs(char:GetDescendants()) do
-                if part:IsA("BasePart") and originalCollision[part] == nil then
-                    originalCollision[part] = part.CanCollide
-                end
-            end
-        end
-        
-        -- Bật noclip
-        if noclipConnection then noclipConnection:Disconnect() end
-        noclipConnection = RunService.RenderStepped:Connect(function()
-            local char = player.Character
-            if char then
-                for _, part in pairs(char:GetDescendants()) do
-                    if part:IsA("BasePart") then
-                        part.CanCollide = false
-                    end
-                end
-            end
-        end)
-        
-        -- Đổi màu nút (nếu có nút trong GUI)
-        if noclipBtn then
-            noclipBtn.Text = "🚪 NO CLIP [ON]"
-            noclipBtn.BackgroundColor3 = Color3.fromRGB(140, 110, 180)
-        end
-        print("[NOCLIP] ON")
-    else
-        -- Tắt noclip
-        if noclipConnection then
-            noclipConnection:Disconnect()
-            noclipConnection = nil
-        end
-        
-        -- Khôi phục trạng thái gốc
-        for part, canCollide in pairs(originalCollision) do
-            if part and part.Parent then
-                part.CanCollide = canCollide
-            end
-        end
-        originalCollision = {}
-        
-        if noclipBtn then
-            noclipBtn.Text = "🚪 NO CLIP [OFF]"
-            noclipBtn.BackgroundColor3 = Color3.fromRGB(100, 80, 140)
-        end
-        print("[NOCLIP] OFF")
-    end
-end
-
--- Tạo nút NO CLIP (tự động thêm vào GUI có sẵn)
-local noclipBtn = Instance.new("TextButton")
-noclipBtn.Size = UDim2.new(0, 140, 0, 45)
-noclipBtn.Position = UDim2.new(0.02, 0, 0.6, -22)
-noclipBtn.BackgroundColor3 = Color3.fromRGB(100, 80, 140)
-noclipBtn.BackgroundTransparency = 0.15
-noclipBtn.Text = "🚪 NO CLIP [OFF]"
-noclipBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-noclipBtn.TextSize = 14
-noclipBtn.Font = Enum.Font.GothamBold
-noclipBtn.BorderSizePixel = 0
-noclipBtn.Draggable = true
-noclipBtn.Parent = screenGui
-
-local noclipCorner = Instance.new("UICorner")
-noclipCorner.CornerRadius = UDim.new(0, 10)
-noclipCorner.Parent = noclipBtn
-
-noclipBtn.MouseButton1Click:Connect(toggleNoclip)
-
-player.CharacterAdded:Connect(function()
-    if noclipEnabled then
-        task.wait(0.5)
-        noclipEnabled = false
-        toggleNoclip()
+    if mainFrame.Visible then
+        updateCanvas()
     end
 end)
