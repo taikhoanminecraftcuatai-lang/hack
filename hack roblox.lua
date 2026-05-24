@@ -156,7 +156,7 @@ openBtn.MouseButton1Click:Connect(function()
     end
 end)
 --========================
--- AIM LOCK PRO MAX - GHIM CHẶT VÀO ĐẦU
+-- AIM LOCK PRO MAX - CỨNG NHƯ THÉP
 --========================
 local player = game.Players.LocalPlayer
 local RunService = game:GetService("RunService")
@@ -168,38 +168,29 @@ local aimLockEnabled = false
 local currentTarget = nil
 local aimConnection = nil
 local lockDistance = 400
-local targetLockStartTime = 0
-local frameCounter = 0
-local forceLockStrength = 1.0
 
 -- ==================== LẤY VỊ TRÍ ĐẦU CHÍNH XÁC ====================
-local function getAccurateHeadPosition(target)
+local function getHeadPosition(target)
     if not target then return nil end
     local character = target.Character
     if not character then return nil end
     
-    -- Ưu tiên lấy Head trước
+    -- Lấy Head trực tiếp
     local head = character:FindFirstChild("Head")
     if head and head:IsA("BasePart") then
         return head.Position
     end
     
-    -- Nếu không có Head, lấy HumanoidRootPart
+    -- Nếu không có Head, lấy HumanoidRootPart + offset
     local root = character:FindFirstChild("HumanoidRootPart")
     if root and root:IsA("BasePart") then
-        return root.Position + Vector3.new(0, 1.5, 0)
-    end
-    
-    -- Nếu không có gì, lấy UpperTorso
-    local torso = character:FindFirstChild("UpperTorso")
-    if torso and torso:IsA("BasePart") then
-        return torso.Position + Vector3.new(0, 0.5, 0)
+        return root.Position + Vector3.new(0, 1.8, 0)
     end
     
     return nil
 end
 
--- ==================== KIỂM TRA MỤC TIÊU CÒN SỐNG ====================
+-- ==================== KIỂM TRA MỤC TIÊU ====================
 local function isTargetAlive(target)
     if not target then return false end
     local character = target.Character
@@ -213,131 +204,84 @@ local function isTargetAlive(target)
 end
 
 -- ==================== TÌM NGƯỜI GẦN NHẤT ====================
-local function getDistanceBetween(pos1, pos2)
+local function getDistance(pos1, pos2)
     return (pos1 - pos2).Magnitude
 end
 
 local function findClosestEnemy()
-    local myCharacter = player.Character
-    if not myCharacter then return nil, 0 end
+    local myChar = player.Character
+    if not myChar then return nil end
     
-    local myRoot = myCharacter:FindFirstChild("HumanoidRootPart")
-    if not myRoot then return nil, 0 end
+    local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return nil end
     
-    local myPosition = myRoot.Position
-    local closestPlayer = nil
-    local shortestDistance = lockDistance + 1
+    local myPos = myRoot.Position
+    local closest = nil
+    local closestDist = lockDistance
     
-    for _, otherPlayer in pairs(Players:GetPlayers()) do
-        if otherPlayer ~= player then
-            local otherCharacter = otherPlayer.Character
-            if otherCharacter then
-                local otherRoot = otherCharacter:FindFirstChild("HumanoidRootPart")
-                local otherHumanoid = otherCharacter:FindFirstChild("Humanoid")
+    for _, other in pairs(Players:GetPlayers()) do
+        if other ~= player then
+            local otherChar = other.Character
+            if otherChar then
+                local otherRoot = otherChar:FindFirstChild("HumanoidRootPart")
+                local otherHum = otherChar:FindFirstChild("Humanoid")
                 
-                if otherRoot and otherHumanoid and otherHumanoid.Health > 0 then
-                    local distance = getDistanceBetween(myPosition, otherRoot.Position)
-                    if distance < shortestDistance then
-                        shortestDistance = distance
-                        closestPlayer = otherPlayer
+                if otherRoot and otherHum and otherHum.Health > 0 then
+                    local dist = getDistance(myPos, otherRoot.Position)
+                    if dist < closestDist then
+                        closestDist = dist
+                        closest = other
                     end
                 end
             end
         end
     end
     
-    return closestPlayer, shortestDistance
+    return closest
 end
 
--- ==================== GHIM CAMERA VÀO ĐẦU (CỰC CHẶT) ====================
-local function ghimCameraVaoDau(targetPosition)
+-- ==================== LOCK CỨNG VÀO ĐẦU (KHÔNG MƯỢT) ====================
+local function lockHardToHead(target)
+    if not target then return end
+    
+    local targetChar = target.Character
+    if not targetChar then return end
+    
+    local headPos = getHeadPosition(target)
+    if not headPos then return end
+    
     local camera = workspace.CurrentCamera
-    if not camera or not targetPosition then return false end
+    if not camera then return end
     
-    -- Lấy vị trí hiện tại của camera
-    local cameraPosition = camera.CFrame.Position
-    
-    -- Tính toán vector hướng từ camera đến mục tiêu
-    local direction = (targetPosition - cameraPosition).Unit
-    
-    -- Tạo CFrame mới hướng thẳng vào mục tiêu
-    local newCameraCFrame = CFrame.new(cameraPosition, targetPosition)
-    
-    -- GHIM CHẶT: Gán trực tiếp, không qua bất kỳ trung gian nào
-    camera.CFrame = newCameraCFrame
-    
-    return true
+    -- LOCK CỨNG: Gán trực tiếp CFrame, không qua Lerp, không qua bất kỳ trung gian nào
+    local cameraPos = camera.CFrame.Position
+    camera.CFrame = CFrame.new(cameraPos, headPos)
 end
 
--- ==================== GHIM CỰC MẠNH CÓ LẶP LẠI ====================
-local function ghimVaoDauCucManh(target)
-    if not target then return false end
-    
-    -- Lấy vị trí đầu chính xác
-    local headPosition = getAccurateHeadPosition(target)
-    if not headPosition then return false end
-    
-    -- Ghim camera
-    local success = ghimCameraVaoDau(headPosition)
-    
-    return success
-end
-
--- ==================== TỰ ĐỘNG CHUYỂN MỤC TIÊU ====================
-local function timMucTieuMoi()
-    local newTarget, distance = findClosestEnemy()
-    if newTarget then
-        currentTarget = newTarget
-        targetLockStartTime = tick()
-        return true
-    end
-    currentTarget = nil
-    return false
-end
-
-local function kiemTraMucTieuConHopLe()
-    if not currentTarget then return false end
-    if not isTargetAlive(currentTarget) then return false end
-    
-    -- Kiểm tra khoảng cách
-    local myCharacter = player.Character
-    local myRoot = myCharacter and myCharacter:FindFirstChild("HumanoidRootPart")
-    local targetRoot = currentTarget.Character and currentTarget.Character:FindFirstChild("HumanoidRootPart")
-    
-    if not myRoot or not targetRoot then return false end
-    
-    local distance = getDistanceBetween(myRoot.Position, targetRoot.Position)
-    if distance > lockDistance then return false end
-    
-    return true
-end
-
--- ==================== VÒNG LẶP GHIM CHẶT ====================
-local function vongLapGhim()
+-- ==================== VÒNG LẶP LOCK ====================
+local function updateLock()
     if not aimLockEnabled then return end
     
-    frameCounter = frameCounter + 1
+    -- Tìm target mới mỗi frame (luôn ưu tiên người gần nhất)
+    local target = findClosestEnemy()
     
-    -- Kiểm tra target hiện tại
-    if not kiemTraMucTieuConHopLe() then
-        timMucTieuMoi()
-    end
-    
-    -- Ghim vào target nếu có
-    if currentTarget then
-        ghimVaoDauCucManh(currentTarget)
+    if target then
+        currentTarget = target
+        lockHardToHead(target)
+    else
+        currentTarget = nil
     end
 end
 
--- ==================== KHỞI ĐỘNG VÀ DỪNG ====================
-local function khoiDongGhim()
+-- ==================== BẬT/TẮT ====================
+local function startLock()
     if aimConnection then
         aimConnection:Disconnect()
     end
-    aimConnection = RunService.RenderStepped:Connect(vongLapGhim)
+    aimConnection = RunService.RenderStepped:Connect(updateLock)
 end
 
-local function dungGhim()
+local function stopLock()
     if aimConnection then
         aimConnection:Disconnect()
         aimConnection = nil
@@ -345,24 +289,22 @@ local function dungGhim()
     currentTarget = nil
 end
 
--- ==================== BẬT/TẮT ====================
-local function batAimLock()
+local function enableAimLock()
     if aimLockEnabled then return end
     aimLockEnabled = true
-    timMucTieuMoi()
-    khoiDongGhim()
+    startLock()
     
     if aimBtn then
         aimBtn.Text = " AIM LOCK [ON]"
         aimBtn.BackgroundColor3 = Color3.fromRGB(200, 80, 100)
     end
-    print("[AIM LOCK] ĐÃ BẬT - GHIM CHẶT VÀO ĐẦU")
+    print("[AIM LOCK] ĐÃ BẬT - LOCK CỨNG VÀO ĐẦU")
 end
 
-local function tatAimLock()
+local function disableAimLock()
     if not aimLockEnabled then return end
     aimLockEnabled = false
-    dungGhim()
+    stopLock()
     
     if aimBtn then
         aimBtn.Text = " AIM LOCK [OFF]"
@@ -371,30 +313,21 @@ local function tatAimLock()
     print("[AIM LOCK] ĐÃ TẮT")
 end
 
-local function chuyenDoiAimLock()
+local function toggleAimLock()
     if aimLockEnabled then
-        tatAimLock()
+        disableAimLock()
     else
-        batAimLock()
+        enableAimLock()
     end
 end
 
--- ==================== XỬ LÝ KHI NHÂN VẬT RESPAWN ====================
+-- ==================== XỬ LÝ RESPAWN ====================
 player.CharacterAdded:Connect(function()
     if aimLockEnabled then
-        task.wait(0.5)
         currentTarget = nil
-        timMucTieuMoi()
-    end
-end)
-
--- ==================== XỬ LÝ KHI CÓ NGƯỜI CHƠI RỜI ====================
-Players.PlayerRemoving:Connect(function(leavingPlayer)
-    if aimLockEnabled and currentTarget == leavingPlayer then
-        timMucTieuMoi()
     end
 end)
 
 -- ==================== TẠO NÚT TRONG GUI ====================
 local aimBtn = makeButton(" AIM LOCK", 1, 1, Color3.fromRGB(80, 60, 100))
-aimBtn.MouseButton1Click:Connect(chuyenDoiAimLock)
+aimBtn.MouseButton1Click:Connect(toggleAimLock)
