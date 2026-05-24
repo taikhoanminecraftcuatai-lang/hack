@@ -211,14 +211,14 @@ local function enableAimLock()
     if aimLockEnabled then return end
     aimLockEnabled = true
     startAimLock()
-    print("[AIM LOCK] ĐÃ BẬT | Độ mượt: " .. smoothness)
+    print("[AIM LOCK PLAYER] ĐÃ BẬT | Độ mượt: " .. smoothness)
 end
 
 local function disableAimLock()
     if not aimLockEnabled then return end
     aimLockEnabled = false
     stopAimLock()
-    print("[AIM LOCK] ĐÃ TẮT")
+    print("[AIM LOCK PLAYER] ĐÃ TẮT")
 end
 
 local function toggleAimLock()
@@ -247,7 +247,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
         notif.TextColor3 = aimLockEnabled and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 100, 100)
         notif.Font = Enum.Font.GothamBold
         notif.TextSize = 12
-        notif.Text = aimLockEnabled and " AIM LOCK [ON]" or " AIM LOCK [OFF]"
+        notif.Text = aimLockEnabled and " AIM LOCK PLAYER [ON]" or " AIM LOCK PLAYER [OFF]"
         Instance.new("UICorner", notif).CornerRadius = UDim.new(0, 8)
         task.wait(1)
         notif:Destroy()
@@ -283,10 +283,10 @@ return {
     getCurrentTarget = function() return currentTarget end,
     setSmoothness = function(value)
         smoothness = math.clamp(value, 0, 1)
-        print("[AIM LOCK] Độ mượt: " .. smoothness)
+        print("[AIM LOCK PlAYER] Độ mượt: " .. smoothness)
     end,
     setDistance = function(value)
         lockDistance = math.max(50, value)
-        print("[AIM LOCK] Khoảng cách lock: " .. lockDistance)
+        print("[AIM LOCK PLAYER] Khoảng cách lock: " .. lockDistance)
     end
 }
