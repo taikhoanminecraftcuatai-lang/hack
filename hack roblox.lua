@@ -440,117 +440,171 @@ end)
 local jumpBtn = makeButton(" INFINITE JUMP", 2, 1, Color3.fromRGB(80, 100, 80))
 jumpBtn.MouseButton1Click:Connect(toggleJump)
 --========================
--- ANTI FALL PRO MAX (CHỐNG RƠI KHỎI VỰC)
+-- AIR WALK PRO MAX (ĐI TRÊN KHÔNG KHÍ)
 --========================
 local player = game.Players.LocalPlayer
 local RunService = game:GetService("RunService")
 
-local antiFallEnabled = false
-local antiFallConnection = nil
-local safeHeight = 15  -- Độ cao an toàn (dưới này sẽ kéo lên)
-local teleportHeight = 50  -- Độ cao sẽ kéo về
+local airWalkEnabled = false
+local airWalkConnection = nil
+local platformParts = {}  -- Lưu các platform đã tạo
 
--- Kiểm tra vị trí có bị rơi không
-local function isFalling()
+-- Tạo một platform ảo dưới chân để đứng
+local function createPlatform()
     local char = player.Character
-    if not char then return false end
+    if not char then return nil end
     
     local root = char:FindFirstChild("HumanoidRootPart")
-    if not root then return false end
+    if not root then return nil end
     
-    local yPos = root.Position.Y
+    local hum = char:FindFirstChild("Humanoid")
+    if not hum then return nil end
     
-    -- Nếu dưới độ cao an toàn
-    if yPos < safeHeight then
-        return true, yPos
+    -- Kiểm tra xem có đang đứng trên mặt đất không
+    if hum.FloorMaterial ~= Enum.Material.Air then
+        return nil
     end
     
-    return false, yPos
+    -- Vị trí dưới chân
+    local pos = root.Position - Vector3.new(0, 2, 0)
+    
+    -- Tạo platform
+    local platform = Instance.new("Part")
+    platform.Name = "AirWalkPlatform"
+    platform.Size = Vector3.new(3, 0.2, 3)
+    platform.Position = pos
+    platform.Anchored = true
+    platform.CanCollide = true
+    platform.Transparency = 1  -- Vô hình
+    platform.Material = Enum.Material.Air
+    platform.Parent = workspace
+    
+    -- Tự động xóa sau 0.5 giây nếu không cần
+    task.spawn(function()
+        task.wait(0.5)
+        if platform and platform.Parent then
+            platform:Destroy()
+        end
+        -- Xóa khỏi danh sách lưu
+        for i, p in pairs(platformParts) do
+            if p == platform then
+                platformParts[i] = nil
+                break
+            end
+        end
+    end)
+    
+    table.insert(platformParts, platform)
+    return platform
 end
 
--- Kéo lên vị trí an toàn
-local function teleportToSafety()
+-- Dọn dẹp các platform cũ
+local function cleanupOldPlatforms()
+    for i, platform in pairs(platformParts) do
+        if platform and platform.Parent then
+            -- Giữ lại nếu còn dùng, không thì xóa
+            local char = player.Character
+            if char then
+                local root = char:FindFirstChild("HumanoidRootPart")
+                if root and (root.Position - platform.Position).Magnitude > 5 then
+                    platform:Destroy()
+                    platformParts[i] = nil
+                end
+            else
+                platform:Destroy()
+                platformParts[i] = nil
+            end
+        else
+            platformParts[i] = nil
+        end
+    end
+end
+
+-- Vòng lặp tạo platform
+local function updateAirWalk()
+    if not airWalkEnabled then return end
+    
     local char = player.Character
     if not char then return end
+    
+    local hum = char:FindFirstChild("Humanoid")
+    if not hum then return end
     
     local root = char:FindFirstChild("HumanoidRootPart")
     if not root then return end
     
-    local hum = char:FindFirstChild("Humanoid")
-    
-    -- Lưu vị trí X và Z hiện tại, chỉ thay đổi Y
-    local newPos = Vector3.new(root.Position.X, teleportHeight, root.Position.Z)
-    
-    -- Teleport lên vị trí an toàn
-    root.CFrame = CFrame.new(newPos)
-    
-    -- Nếu có Humanoid, đặt lại trạng thái
-    if hum then
-        hum:ChangeState(Enum.HumanoidStateType.Running)
-        hum.Jump = false
+    -- Chỉ tạo platform khi đang ở trên không
+    if hum.FloorMaterial == Enum.Material.Air then
+        -- Tạo platform dưới chân
+        createPlatform()
     end
     
-    print("[ANTI FALL] Đã cứu bạn khỏi rơi khỏi vực!")
+    -- Dọn dẹp platform cũ
+    cleanupOldPlatforms()
 end
 
--- Vòng lặp kiểm tra
-local function checkFall()
-    if not antiFallEnabled then return end
+-- Bật Air Walk
+local function enableAirWalk()
+    if airWalkEnabled then return end
+    airWalkEnabled = true
     
-    local falling, yPos = isFalling()
-    if falling then
-        teleportToSafety()
+    if airWalkConnection then airWalkConnection:Disconnect() end
+    airWalkConnection = RunService.RenderStepped:Connect(updateAirWalk)
+    
+    if airWalkBtn then
+        airWalkBtn.Text = " AIR WALK [ON]"
+        airWalkBtn.BackgroundColor3 = Color3.fromRGB(100, 150, 180)
     end
+    print("[AIR WALK] ĐÃ BẬT - Bạn có thể đi trên không trung")
 end
 
--- Bật chống rơi
-local function enableAntiFall()
-    if antiFallEnabled then return end
-    antiFallEnabled = true
+-- Tắt Air Walk
+local function disableAirWalk()
+    if not airWalkEnabled then return end
+    airWalkEnabled = false
     
-    if antiFallConnection then antiFallConnection:Disconnect() end
-    antiFallConnection = RunService.RenderStepped:Connect(checkFall)
-    
-    if antiFallBtn then
-        antiFallBtn.Text = " ANTI FALL [ON]"
-        antiFallBtn.BackgroundColor3 = Color3.fromRGB(100, 140, 100)
-    end
-    print("[ANTI FALL] ĐÃ BẬT - Sẽ cứu bạn khi rơi khỏi vực")
-end
-
--- Tắt chống rơi
-local function disableAntiFall()
-    if not antiFallEnabled then return end
-    antiFallEnabled = false
-    
-    if antiFallConnection then
-        antiFallConnection:Disconnect()
-        antiFallConnection = nil
+    if airWalkConnection then
+        airWalkConnection:Disconnect()
+        airWalkConnection = nil
     end
     
-    if antiFallBtn then
-        antiFallBtn.Text = "🛡️ ANTI FALL [OFF]"
-        antiFallBtn.BackgroundColor3 = Color3.fromRGB(100, 80, 80)
+    -- Xóa tất cả platform
+    for _, platform in pairs(platformParts) do
+        if platform and platform.Parent then
+            platform:Destroy()
+        end
     end
-    print("[ANTI FALL] ĐÃ TẮT")
+    platformParts = {}
+    
+    if airWalkBtn then
+        airWalkBtn.Text = " AIR WALK [OFF]"
+        airWalkBtn.BackgroundColor3 = Color3.fromRGB(80, 100, 120)
+    end
+    print("[AIR WALK] ĐÃ TẮT")
 end
 
 -- Đảo trạng thái
-local function toggleAntiFall()
-    if antiFallEnabled then
-        disableAntiFall()
+local function toggleAirWalk()
+    if airWalkEnabled then
+        disableAirWalk()
     else
-        enableAntiFall()
+        enableAirWalk()
     end
 end
 
--- Xử lý khi respawn
+-- Xử lý khi nhân vật respawn
 player.CharacterAdded:Connect(function()
-    if antiFallEnabled then
-        -- Không cần làm gì thêm, vòng lặp vẫn chạy
+    if airWalkEnabled then
+        -- Dọn dẹp platform cũ
+        for _, platform in pairs(platformParts) do
+            if platform and platform.Parent then
+                platform:Destroy()
+            end
+        end
+        platformParts = {}
     end
 end)
 
 -- Tạo nút trong GUI
-local antiFallBtn = makeButton(" ANTI FALL", 3, 1, Color3.fromRGB(100, 80, 80))
-antiFallBtn.MouseButton1Click:Connect(toggleAntiFall)
+local airWalkBtn = makeButton(" AIR WALK", 3, 1, Color3.fromRGB(80, 100, 120))
+airWalkBtn.MouseButton1Click:Connect(toggleAirWalk)
