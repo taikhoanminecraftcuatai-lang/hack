@@ -398,3 +398,93 @@ end)
 openBtn.MouseButton1Click:Connect(function()
     mainFrame.Visible = not mainFrame.Visible
 end)
+--========================
+-- NO CLIP (DÁN VÀO CUỐI SCRIPT LÀ XONG)
+--========================
+local noclipEnabled = false
+local noclipConnection = nil
+local originalCollision = {}
+
+local function toggleNoclip()
+    noclipEnabled = not noclipEnabled
+    
+    if noclipEnabled then
+        -- Lưu trạng thái gốc
+        local char = player.Character
+        if char then
+            for _, part in pairs(char:GetDescendants()) do
+                if part:IsA("BasePart") and originalCollision[part] == nil then
+                    originalCollision[part] = part.CanCollide
+                end
+            end
+        end
+        
+        -- Bật noclip
+        if noclipConnection then noclipConnection:Disconnect() end
+        noclipConnection = RunService.RenderStepped:Connect(function()
+            local char = player.Character
+            if char then
+                for _, part in pairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end)
+        
+        -- Đổi màu nút (nếu có nút trong GUI)
+        if noclipBtn then
+            noclipBtn.Text = "🚪 NO CLIP [ON]"
+            noclipBtn.BackgroundColor3 = Color3.fromRGB(140, 110, 180)
+        end
+        print("[NOCLIP] ON")
+    else
+        -- Tắt noclip
+        if noclipConnection then
+            noclipConnection:Disconnect()
+            noclipConnection = nil
+        end
+        
+        -- Khôi phục trạng thái gốc
+        for part, canCollide in pairs(originalCollision) do
+            if part and part.Parent then
+                part.CanCollide = canCollide
+            end
+        end
+        originalCollision = {}
+        
+        if noclipBtn then
+            noclipBtn.Text = "🚪 NO CLIP [OFF]"
+            noclipBtn.BackgroundColor3 = Color3.fromRGB(100, 80, 140)
+        end
+        print("[NOCLIP] OFF")
+    end
+end
+
+-- Tạo nút NO CLIP (tự động thêm vào GUI có sẵn)
+local noclipBtn = Instance.new("TextButton")
+noclipBtn.Size = UDim2.new(0, 140, 0, 45)
+noclipBtn.Position = UDim2.new(0.02, 0, 0.6, -22)
+noclipBtn.BackgroundColor3 = Color3.fromRGB(100, 80, 140)
+noclipBtn.BackgroundTransparency = 0.15
+noclipBtn.Text = "🚪 NO CLIP [OFF]"
+noclipBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+noclipBtn.TextSize = 14
+noclipBtn.Font = Enum.Font.GothamBold
+noclipBtn.BorderSizePixel = 0
+noclipBtn.Draggable = true
+noclipBtn.Parent = screenGui
+
+local noclipCorner = Instance.new("UICorner")
+noclipCorner.CornerRadius = UDim.new(0, 10)
+noclipCorner.Parent = noclipBtn
+
+noclipBtn.MouseButton1Click:Connect(toggleNoclip)
+
+player.CharacterAdded:Connect(function()
+    if noclipEnabled then
+        task.wait(0.5)
+        noclipEnabled = false
+        toggleNoclip()
+    end
+end)
