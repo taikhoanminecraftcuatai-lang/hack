@@ -331,3 +331,111 @@ end)
 -- ==================== TẠO NÚT TRONG GUI ====================
 local aimBtn = makeButton(" AIM LOCK", 1, 1, Color3.fromRGB(80, 60, 100))
 aimBtn.MouseButton1Click:Connect(toggleAimLock)
+--========================
+-- INFINITE JUMP PRO MAX (CHỈ CÒN NÚT BẬT/TẮT)
+--========================
+local player = game.Players.LocalPlayer
+local UserInputService = game:GetService("UserInputService")
+
+local jumpEnabled = false
+local jumpConnection = nil
+local originalJumpPower = nil
+local currentJumpPower = 65
+
+-- Lấy Humanoid
+local function getHumanoid()
+    local char = player.Character
+    if not char then return nil end
+    return char:FindFirstChild("Humanoid")
+end
+
+-- Lưu lực nhảy gốc
+local function saveOriginalJumpPower()
+    local hum = getHumanoid()
+    if hum and originalJumpPower == nil then
+        originalJumpPower = hum.JumpPower
+    end
+end
+
+-- Khôi phục lực nhảy gốc
+local function restoreOriginalJumpPower()
+    local hum = getHumanoid()
+    if hum and originalJumpPower then
+        hum.JumpPower = originalJumpPower
+    end
+end
+
+-- Xử lý nhảy
+local function onJumpRequest()
+    if not jumpEnabled then return end
+    
+    local hum = getHumanoid()
+    if not hum then return end
+    if hum.Health <= 0 then return end
+    
+    hum.JumpPower = currentJumpPower
+    
+    if hum.FloorMaterial == Enum.Material.Air then
+        hum:ChangeState(Enum.HumanoidStateType.Jumping)
+    end
+end
+
+-- Bật
+local function enableJump()
+    if jumpEnabled then return end
+    jumpEnabled = true
+    saveOriginalJumpPower()
+    
+    if jumpConnection then jumpConnection:Disconnect() end
+    jumpConnection = UserInputService.JumpRequest:Connect(onJumpRequest)
+    
+    if jumpBtn then
+        jumpBtn.Text = " INFINITE JUMP [ON]"
+        jumpBtn.BackgroundColor3 = Color3.fromRGB(100, 150, 120)
+    end
+    print("[INFINITE JUMP] ĐÃ BẬT")
+end
+
+-- Tắt
+local function disableJump()
+    if not jumpEnabled then return end
+    jumpEnabled = false
+    
+    if jumpConnection then
+        jumpConnection:Disconnect()
+        jumpConnection = nil
+    end
+    
+    restoreOriginalJumpPower()
+    
+    if jumpBtn then
+        jumpBtn.Text = " INFINITE JUMP [OFF]"
+        jumpBtn.BackgroundColor3 = Color3.fromRGB(80, 100, 80)
+    end
+    print("[INFINITE JUMP] ĐÃ TẮT")
+end
+
+-- Đảo trạng thái
+local function toggleJump()
+    if jumpEnabled then
+        disableJump()
+    else
+        enableJump()
+    end
+end
+
+-- Xử lý respawn
+player.CharacterAdded:Connect(function()
+    if jumpEnabled then
+        task.wait(0.5)
+        saveOriginalJumpPower()
+        if jumpConnection then
+            jumpConnection:Disconnect()
+        end
+        jumpConnection = UserInputService.JumpRequest:Connect(onJumpRequest)
+    end
+end)
+
+-- Tạo nút trong GUI
+local jumpBtn = makeButton(" INFINITE JUMP", 2, 1, Color3.fromRGB(80, 100, 80))
+jumpBtn.MouseButton1Click:Connect(toggleJump)
