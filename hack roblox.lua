@@ -440,19 +440,20 @@ end)
 local jumpBtn = makeButton(" INFINITE JUMP", 2, 1, Color3.fromRGB(80, 100, 80))
 jumpBtn.MouseButton1Click:Connect(toggleJump)
 --========================
--- AIR WALK PRO MAX (TỐI ƯU, KHÔNG TẠO QUÁ NHIỀU)
+-- AIR WALK PRO MAX (KHÔNG BỊ NÂNG LÊN)
 --========================
 local player = game.Players.LocalPlayer
 local RunService = game:GetService("RunService")
 
 local airWalkEnabled = false
 local airWalkConnection = nil
-local lastPlatformPos = nil
 local platformList = {}
-local maxPlatforms = 15
+local maxPlatforms = 20
+local lastCreateTime = 0
+local createDelay = 0.15  -- Chờ 0.15 giây mới tạo platform tiếp theo
 
--- Tạo một platform duy nhất tại vị trí hiện tại
-local function createSinglePlatform()
+-- Tạo platform
+local function createPlatform()
     local char = player.Character
     if not char then return nil end
     
@@ -462,25 +463,24 @@ local function createSinglePlatform()
     local hum = char:FindFirstChild("Humanoid")
     if not hum then return nil end
     
-    -- Chỉ tạo khi đang ở trên không
+    -- Chỉ tạo khi đang ở trên không VÀ đang rơi xuống
     if hum.FloorMaterial ~= Enum.Material.Air then
         return nil
     end
     
-    -- Vị trí dưới chân
-    local pos = root.Position - Vector3.new(0, 2, 0)
-    
-    -- Làm tròn vị trí để tránh tạo quá nhiều platform sát nhau
-    local roundedPos = Vector3.new(math.floor(pos.X * 2) / 2, pos.Y, math.floor(pos.Z * 2) / 2)
-    
-    -- Kiểm tra xem đã có platform ở vị trí này chưa
-    if lastPlatformPos and (roundedPos - lastPlatformPos).Magnitude < 2 then
-        return nil
+    -- Kiểm tra vận tốc rơi (đang rơi xuống mới tạo)
+    local velocity = root.AssemblyLinearVelocity
+    if velocity.Y > -10 then
+        return nil  -- Không tạo nếu đang đi lên hoặc rơi chậm
     end
     
-    lastPlatformPos = roundedPos
+    -- Vị trí dưới chân (thấp hơn 3 studs để tránh bị nâng)
+    local pos = root.Position - Vector3.new(0, 3.5, 0)
     
-    -- Xóa platform cũ nếu vượt quá số lượng
+    -- Làm tròn vị trí
+    local roundedPos = Vector3.new(math.floor(pos.X * 2) / 2, pos.Y, math.floor(pos.Z * 2) / 2)
+    
+    -- Xóa platform cũ nếu quá nhiều
     if #platformList >= maxPlatforms then
         local oldest = table.remove(platformList, 1)
         if oldest and oldest.Parent then
@@ -488,7 +488,7 @@ local function createSinglePlatform()
         end
     end
     
-    -- Tạo platform mới
+    -- Tạo platform
     local platform = Instance.new("Part")
     platform.Name = "AirWalkPlatform"
     platform.Size = Vector3.new(2.5, 0.2, 2.5)
@@ -501,9 +501,9 @@ local function createSinglePlatform()
     
     table.insert(platformList, platform)
     
-    -- Tự động xóa platform sau 3 giây
+    -- Xóa sau 2 giây
     task.spawn(function()
-        task.wait(3)
+        task.wait(2)
         if platform and platform.Parent then
             platform:Destroy()
             for i, p in pairs(platformList) do
@@ -518,7 +518,7 @@ local function createSinglePlatform()
     return platform
 end
 
--- Vòng lặp chính
+-- Vòng lặp
 local function updateAirWalk()
     if not airWalkEnabled then return end
     
@@ -528,15 +528,19 @@ local function updateAirWalk()
     local hum = char:FindFirstChild("Humanoid")
     if not hum then return end
     
-    -- Chỉ tạo khi đang ở trên không VÀ đang di chuyển
+    local currentTime = tick()
+    
+    -- Chỉ tạo khi đang ở trên không VÀ đang rơi xuống
     if hum.FloorMaterial == Enum.Material.Air then
-        local moveDir = hum.MoveDirection
-        if moveDir.Magnitude > 0.2 then
-            createSinglePlatform()
+        local root = char:FindFirstChild("HumanoidRootPart")
+        if root then
+            local velocity = root.AssemblyLinearVelocity
+            -- Đang rơi xuống (velocity.Y < 0) và tốc độ rơi đủ lớn
+            if velocity.Y < 0 and math.abs(velocity.Y) > 5 and currentTime - lastCreateTime > createDelay then
+                lastCreateTime = currentTime
+                createPlatform()
+            end
         end
-    else
-        -- Khi chạm đất, reset vị trí platform cuối
-        lastPlatformPos = nil
     end
 end
 
@@ -544,6 +548,7 @@ end
 local function enableAirWalk()
     if airWalkEnabled then return end
     airWalkEnabled = true
+    lastCreateTime = 0
     
     if airWalkConnection then airWalkConnection:Disconnect() end
     airWalkConnection = RunService.RenderStepped:Connect(updateAirWalk)
@@ -552,7 +557,7 @@ local function enableAirWalk()
         airWalkBtn.Text = " AIR WALK [ON]"
         airWalkBtn.BackgroundColor3 = Color3.fromRGB(100, 150, 180)
     end
-    print("[AIR WALK] ĐÃ BẬT")
+    print("[AIR WALK] ĐÃ BẬT - Nhảy lên và di chuyển, sẽ tạo đường dưới chân khi rơi")
 end
 
 -- Tắt
@@ -565,14 +570,12 @@ local function disableAirWalk()
         airWalkConnection = nil
     end
     
-    -- Xóa tất cả platform
     for _, platform in pairs(platformList) do
         if platform and platform.Parent then
             platform:Destroy()
         end
     end
     platformList = {}
-    lastPlatformPos = nil
     
     if airWalkBtn then
         airWalkBtn.Text = " AIR WALK [OFF]"
@@ -581,7 +584,6 @@ local function disableAirWalk()
     print("[AIR WALK] ĐÃ TẮT")
 end
 
--- Đảo trạng thái
 local function toggleAirWalk()
     if airWalkEnabled then
         disableAirWalk()
@@ -590,7 +592,6 @@ local function toggleAirWalk()
     end
 end
 
--- Xử lý respawn
 player.CharacterAdded:Connect(function()
     if airWalkEnabled then
         for _, platform in pairs(platformList) do
@@ -599,10 +600,8 @@ player.CharacterAdded:Connect(function()
             end
         end
         platformList = {}
-        lastPlatformPos = nil
     end
 end)
 
--- Tạo nút
 local airWalkBtn = makeButton(" AIR WALK", 3, 1, Color3.fromRGB(80, 100, 120))
 airWalkBtn.MouseButton1Click:Connect(toggleAirWalk)
