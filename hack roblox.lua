@@ -439,3 +439,118 @@ end)
 -- Tạo nút trong GUI
 local jumpBtn = makeButton(" INFINITE JUMP", 2, 1, Color3.fromRGB(80, 100, 80))
 jumpBtn.MouseButton1Click:Connect(toggleJump)
+--========================
+-- ANTI FALL PRO MAX (CHỐNG RƠI KHỎI VỰC)
+--========================
+local player = game.Players.LocalPlayer
+local RunService = game:GetService("RunService")
+
+local antiFallEnabled = false
+local antiFallConnection = nil
+local safeHeight = 15  -- Độ cao an toàn (dưới này sẽ kéo lên)
+local teleportHeight = 50  -- Độ cao sẽ kéo về
+
+-- Kiểm tra vị trí có bị rơi không
+local function isFalling()
+    local char = player.Character
+    if not char then return false end
+    
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return false end
+    
+    local yPos = root.Position.Y
+    
+    -- Nếu dưới độ cao an toàn
+    if yPos < safeHeight then
+        return true, yPos
+    end
+    
+    return false, yPos
+end
+
+-- Kéo lên vị trí an toàn
+local function teleportToSafety()
+    local char = player.Character
+    if not char then return end
+    
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    
+    local hum = char:FindFirstChild("Humanoid")
+    
+    -- Lưu vị trí X và Z hiện tại, chỉ thay đổi Y
+    local newPos = Vector3.new(root.Position.X, teleportHeight, root.Position.Z)
+    
+    -- Teleport lên vị trí an toàn
+    root.CFrame = CFrame.new(newPos)
+    
+    -- Nếu có Humanoid, đặt lại trạng thái
+    if hum then
+        hum:ChangeState(Enum.HumanoidStateType.Running)
+        hum.Jump = false
+    end
+    
+    print("[ANTI FALL] Đã cứu bạn khỏi rơi khỏi vực!")
+end
+
+-- Vòng lặp kiểm tra
+local function checkFall()
+    if not antiFallEnabled then return end
+    
+    local falling, yPos = isFalling()
+    if falling then
+        teleportToSafety()
+    end
+end
+
+-- Bật chống rơi
+local function enableAntiFall()
+    if antiFallEnabled then return end
+    antiFallEnabled = true
+    
+    if antiFallConnection then antiFallConnection:Disconnect() end
+    antiFallConnection = RunService.RenderStepped:Connect(checkFall)
+    
+    if antiFallBtn then
+        antiFallBtn.Text = " ANTI FALL [ON]"
+        antiFallBtn.BackgroundColor3 = Color3.fromRGB(100, 140, 100)
+    end
+    print("[ANTI FALL] ĐÃ BẬT - Sẽ cứu bạn khi rơi khỏi vực")
+end
+
+-- Tắt chống rơi
+local function disableAntiFall()
+    if not antiFallEnabled then return end
+    antiFallEnabled = false
+    
+    if antiFallConnection then
+        antiFallConnection:Disconnect()
+        antiFallConnection = nil
+    end
+    
+    if antiFallBtn then
+        antiFallBtn.Text = "🛡️ ANTI FALL [OFF]"
+        antiFallBtn.BackgroundColor3 = Color3.fromRGB(100, 80, 80)
+    end
+    print("[ANTI FALL] ĐÃ TẮT")
+end
+
+-- Đảo trạng thái
+local function toggleAntiFall()
+    if antiFallEnabled then
+        disableAntiFall()
+    else
+        enableAntiFall()
+    end
+end
+
+-- Xử lý khi respawn
+player.CharacterAdded:Connect(function()
+    if antiFallEnabled then
+        -- Không cần làm gì thêm, vòng lặp vẫn chạy
+    end
+end)
+
+-- Tạo nút trong GUI
+local antiFallBtn = makeButton(" ANTI FALL", 3, 1, Color3.fromRGB(100, 80, 80))
+antiFallBtn.MouseButton1Click:Connect(toggleAntiFall)
