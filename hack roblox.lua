@@ -155,3 +155,219 @@ openBtn.MouseButton1Click:Connect(function()
         updateCanvas()
     end
 end)
+--========================
+-- AIM LOCK PRO MAX - SIÊU PHẨM
+--========================
+local player = game.Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+
+-- ==================== CẤU HÌNH ====================
+local aimLockEnabled = false
+local currentTarget = nil
+local aimConnection = nil
+local lockDistance = 350
+local smoothness = 0.12
+local lastTargetTime = 0
+local targetLockedTime = 0
+local frameCount = 0
+
+-- ==================== HÀM TÌM NGƯỜI GẦN NHẤT ====================
+local function getDistance(pos1, pos2)
+    return (pos1 - pos2).Magnitude
+end
+
+local function isTargetAlive(target)
+    if not target then return false end
+    local char = target.Character
+    if not char then return false end
+    local hum = char:FindFirstChild("Humanoid")
+    if not hum then return false end
+    if hum.Health <= 0 then return false end
+    return true
+end
+
+local function findClosestEnemy()
+    local character = player.Character
+    if not character then return nil end
+    local root = character:FindFirstChild("HumanoidRootPart")
+    if not root then return nil end
+    
+    local myPos = root.Position
+    local closest = nil
+    local closestDist = lockDistance
+    
+    for _, other in pairs(Players:GetPlayers()) do
+        if other ~= player then
+            local otherChar = other.Character
+            if otherChar then
+                local otherRoot = otherChar:FindFirstChild("HumanoidRootPart")
+                local otherHead = otherChar:FindFirstChild("Head")
+                local otherHum = otherChar:FindFirstChild("Humanoid")
+                
+                if otherRoot and otherHead and otherHum and otherHum.Health > 0 then
+                    local dist = getDistance(myPos, otherRoot.Position)
+                    if dist < closestDist then
+                        closestDist = dist
+                        closest = other
+                    end
+                end
+            end
+        end
+    end
+    return closest, closestDist
+end
+
+-- ==================== HÀM LOCK CAMERA ====================
+local function getHeadPosition(target)
+    if not target then return nil end
+    local char = target.Character
+    if not char then return nil end
+    local head = char:FindFirstChild("Head")
+    if not head then return nil end
+    return head.Position
+end
+
+local function lockCameraHard(targetPos)
+    local camera = workspace.CurrentCamera
+    if not camera or not targetPos then return false end
+    local cameraPos = camera.CFrame.Position
+    camera.CFrame = CFrame.new(cameraPos, targetPos)
+    return true
+end
+
+local function lockCameraSmooth(targetPos)
+    local camera = workspace.CurrentCamera
+    if not camera or not targetPos then return false end
+    local currentCF = camera.CFrame
+    local targetCF = CFrame.new(currentCF.Position, targetPos)
+    local newCF = currentCF:Lerp(targetCF, smoothness)
+    camera.CFrame = newCF
+    return true
+end
+
+local function aimAtTarget(target)
+    if not target then return false end
+    local headPos = getHeadPosition(target)
+    if not headPos then return false end
+    
+    if smoothness <= 0 then
+        return lockCameraHard(headPos)
+    else
+        return lockCameraSmooth(headPos)
+    end
+end
+
+-- ==================== QUẢN LÝ MỤC TIÊU ====================
+local function switchToNewTarget()
+    local newTarget, distance = findClosestEnemy()
+    if newTarget then
+        currentTarget = newTarget
+        targetLockedTime = tick()
+        return true
+    end
+    currentTarget = nil
+    return false
+end
+
+local function isCurrentTargetValid()
+    if not currentTarget then return false end
+    if not isTargetAlive(currentTarget) then return false end
+    
+    local char = player.Character
+    local myRoot = char and char:FindFirstChild("HumanoidRootPart")
+    local targetRoot = currentTarget.Character and currentTarget.Character:FindFirstChild("HumanoidRootPart")
+    
+    if not myRoot or not targetRoot then return false end
+    
+    local dist = getDistance(myRoot.Position, targetRoot.Position)
+    if dist > lockDistance then return false end
+    
+    return true
+end
+
+-- ==================== VÒNG LẶP CHÍNH ====================
+local function updateAimLock()
+    if not aimLockEnabled then return end
+    
+    frameCount = frameCount + 1
+    
+    if not isCurrentTargetValid() then
+        switchToNewTarget()
+    end
+    
+    if currentTarget then
+        aimAtTarget(currentTarget)
+    end
+end
+
+local function startAimLock()
+    if aimConnection then
+        aimConnection:Disconnect()
+    end
+    aimConnection = RunService.RenderStepped:Connect(updateAimLock)
+end
+
+local function stopAimLock()
+    if aimConnection then
+        aimConnection:Disconnect()
+        aimConnection = nil
+    end
+    currentTarget = nil
+end
+
+-- ==================== BẬT/TẮT ====================
+local function enableAimLock()
+    if aimLockEnabled then return end
+    aimLockEnabled = true
+    switchToNewTarget()
+    startAimLock()
+    
+    if aimBtn then
+        aimBtn.Text = " AIM LOCK [ON]"
+        aimBtn.BackgroundColor3 = Color3.fromRGB(180, 80, 120)
+    end
+    print("[AIM LOCK] ĐÃ BẬT - Khoảng cách lock: " .. lockDistance)
+end
+
+local function disableAimLock()
+    if not aimLockEnabled then return end
+    aimLockEnabled = false
+    stopAimLock()
+    
+    if aimBtn then
+        aimBtn.Text = " AIM LOCK [OFF]"
+        aimBtn.BackgroundColor3 = Color3.fromRGB(80, 60, 100)
+    end
+    print("[AIM LOCK] ĐÃ TẮT")
+end
+
+local function toggleAimLock()
+    if aimLockEnabled then
+        disableAimLock()
+    else
+        enableAimLock()
+    end
+end
+
+-- ==================== XỬ LÝ SỰ KIỆN ====================
+player.CharacterAdded:Connect(function()
+    if aimLockEnabled then
+        task.wait(0.5)
+        currentTarget = nil
+        switchToNewTarget()
+    end
+end)
+
+Players.PlayerRemoving:Connect(function(leavingPlayer)
+    if aimLockEnabled and currentTarget == leavingPlayer then
+        currentTarget = nil
+        switchToNewTarget()
+    end
+end)
+
+-- ==================== TẠO NÚT TRONG GUI ====================
+local aimBtn = makeButton(" AIM LOCK", 1, 1, Color3.fromRGB(80, 60, 100))
+aimBtn.MouseButton1Click:Connect(toggleAimLock)
