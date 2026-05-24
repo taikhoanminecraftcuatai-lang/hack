@@ -1,5 +1,5 @@
 --========================
--- SPEED HUB PRO MAX (CHỐNG ANTI CHEAT CỰC MẠNH)
+--Hack roblox tổng hợp
 --========================
 local player = game.Players.LocalPlayer
 local TweenService = game:GetService("TweenService")
@@ -86,321 +86,207 @@ content.BackgroundTransparency = 1
 content.Parent = mainFrame
 
 --========================
--- NÚT SPEED
+-- AIM LOCK PRO MAX (CỰC MẠNH + MƯỢT)
 --========================
-local speedBtn = Instance.new("TextButton")
-speedBtn.Size = UDim2.new(1, 0, 0, 50)
-speedBtn.Position = UDim2.new(0, 0, 0, 0)
-speedBtn.BackgroundColor3 = Color3.fromRGB(60, 100, 140)
-speedBtn.BackgroundTransparency = 0.2
-speedBtn.Text = "⚡ SPEED [OFF]"
-speedBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-speedBtn.TextSize = 16
-speedBtn.Font = Enum.Font.GothamBold
-speedBtn.BorderSizePixel = 0
-speedBtn.Parent = content
-
-local speedCorner = Instance.new("UICorner")
-speedCorner.CornerRadius = UDim.new(0, 10)
-speedCorner.Parent = speedBtn
+local player = game.Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 
 --========================
--- BẢNG NHẬP TỐC ĐỘ
+-- CẤU HÌNH AIM LOCK
 --========================
-local speedBoxFrame = Instance.new("Frame")
-speedBoxFrame.Size = UDim2.new(1, 0, 0, 100)
-speedBoxFrame.Position = UDim2.new(0, 0, 0, 60)
-speedBoxFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
-speedBoxFrame.BackgroundTransparency = 0.2
-speedBoxFrame.BorderSizePixel = 0
-speedBoxFrame.Parent = content
-
-local speedBoxCorner = Instance.new("UICorner")
-speedBoxCorner.CornerRadius = UDim.new(0, 10)
-speedBoxCorner.Parent = speedBoxFrame
-
-local speedLabel = Instance.new("TextLabel")
-speedLabel.Size = UDim2.new(1, 0, 0, 25)
-speedLabel.Position = UDim2.new(0, 0, 0, 5)
-speedLabel.BackgroundTransparency = 1
-speedLabel.Text = "⚡ NHẬP TỐC ĐỘ CHẠY"
-speedLabel.TextColor3 = Color3.fromRGB(180, 180, 220)
-speedLabel.TextSize = 12
-speedLabel.Font = Enum.Font.GothamBold
-speedLabel.Parent = speedBoxFrame
-
--- Ô nhập số
-local speedInput = Instance.new("TextBox")
-speedInput.Size = UDim2.new(0.6, 0, 0, 40)
-speedInput.Position = UDim2.new(0.05, 0, 0.4, 0)
-speedInput.BackgroundColor3 = Color3.fromRGB(20, 20, 35)
-speedInput.TextColor3 = Color3.fromRGB(0, 200, 255)
-speedInput.TextSize = 18
-speedInput.Font = Enum.Font.GothamBold
-speedInput.Text = "100"
-speedInput.PlaceholderText = "NHẬP TỐC ĐỘ"
-speedInput.BorderSizePixel = 0
-
-local inputCorner = Instance.new("UICorner")
-inputCorner.CornerRadius = UDim.new(0, 8)
-inputCorner.Parent = speedInput
-
-speedInput.Parent = speedBoxFrame
-
--- Nút áp dụng tốc độ
-local applyBtn = Instance.new("TextButton")
-applyBtn.Size = UDim2.new(0.25, 0, 0, 40)
-applyBtn.Position = UDim2.new(0.7, 0, 0.4, 0)
-applyBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 200)
-applyBtn.Text = "ÁP DỤNG"
-applyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-applyBtn.TextSize = 13
-applyBtn.Font = Enum.Font.GothamBold
-applyBtn.BorderSizePixel = 0
-
-local applyCorner = Instance.new("UICorner")
-applyCorner.CornerRadius = UDim.new(0, 8)
-applyCorner.Parent = applyBtn
-
-applyBtn.Parent = speedBoxFrame
-
--- Hiển thị tốc độ hiện tại
-local currentSpeedLabel = Instance.new("TextLabel")
-currentSpeedLabel.Size = UDim2.new(1, 0, 0, 25)
-currentSpeedLabel.Position = UDim2.new(0, 0, 0.85, 0)
-currentSpeedLabel.BackgroundTransparency = 1
-currentSpeedLabel.Text = "📊 TỐC ĐỘ HIỆN TẠI: 16"
-currentSpeedLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
-currentSpeedLabel.TextSize = 11
-currentSpeedLabel.Font = Enum.Font.Gotham
-currentSpeedLabel.Parent = speedBoxFrame
+local aimLockEnabled = false
+local currentTarget = nil
+local aimConnection = nil
+local lockDistance = 300
+local smoothness = 0.25  -- Độ mượt (0 = cứng, 1 = rất mượt)
 
 --========================
--- CẢNH BÁO TỐC ĐỘ CAO
+-- TÌM NGƯỜI GẦN NHẤT
 --========================
-local warningFrame = Instance.new("Frame")
-warningFrame.Size = UDim2.new(1, 0, 0, 35)
-warningFrame.Position = UDim2.new(0, 0, 0, 170)
-warningFrame.BackgroundColor3 = Color3.fromRGB(100, 50, 50)
-warningFrame.BackgroundTransparency = 0.3
-warningFrame.BorderSizePixel = 0
-warningFrame.Visible = false
-warningFrame.Parent = content
-
-local warningCorner = Instance.new("UICorner")
-warningCorner.CornerRadius = UDim.new(0, 8)
-warningCorner.Parent = warningFrame
-
-local warningText = Instance.new("TextLabel")
-warningText.Size = UDim2.new(1, 0, 1, 0)
-warningText.BackgroundTransparency = 1
-warningText.Text = "⚠️ TỐC ĐỘ CAO DỄ BỊ ANTI CHEAT PHÁT HIỆN!"
-warningText.TextColor3 = Color3.fromRGB(255, 100, 100)
-warningText.TextSize = 11
-warningText.Font = Enum.Font.GothamBold
-warningText.Parent = warningFrame
-
---========================
--- BIẾN SPEED
---========================
-local speedEnabled = false
-local currentSpeed = 16
-local originalSpeed = nil
-local speedConnection = nil
-local lastSpeedCheck = 0
-
--- Lưu tốc độ gốc
-local function saveOriginalSpeed()
-    local char = player.Character
-    if not char then return end
-    local hum = char:FindFirstChild("Humanoid")
-    if hum and originalSpeed == nil then
-        originalSpeed = hum.WalkSpeed
-    end
-end
-
--- Khôi phục tốc độ gốc
-local function restoreOriginalSpeed()
-    local char = player.Character
-    if not char then return end
-    local hum = char:FindFirstChild("Humanoid")
-    if hum and originalSpeed then
-        hum.WalkSpeed = originalSpeed
-    end
-end
-
--- Chống anti cheat: liên tục set lại speed
-local function antiCheatSpeedFix()
-    if not speedEnabled then return end
+local function findClosestPlayer()
+    local character = player.Character
+    if not character then return nil end
     
-    local char = player.Character
-    if not char then return end
+    local root = character:FindFirstChild("HumanoidRootPart")
+    if not root then return nil end
     
-    local hum = char:FindFirstChild("Humanoid")
-    if not hum then return end
-    if hum.Health <= 0 then return end
+    local myPos = root.Position
+    local closest = nil
+    local closestDist = lockDistance
     
-    -- Set tốc độ liên tục mỗi frame để chống anti cheat
-    if hum.WalkSpeed ~= currentSpeed then
-        hum.WalkSpeed = currentSpeed
-    end
-end
-
--- Chống delay: phát hiện nếu speed bị đổi về
-local function antiDelayFix()
-    if not speedEnabled then return end
-    
-    local char = player.Character
-    if not char then return end
-    
-    local hum = char:FindFirstChild("Humanoid")
-    if not hum then return end
-    
-    local currentTime = tick()
-    if currentTime - lastSpeedCheck > 0.1 then
-        lastSpeedCheck = currentTime
-        if hum.WalkSpeed < currentSpeed * 0.8 and currentSpeed > 50 then
-            -- Bị anti cheat kéo speed xuống, force set lại
-            hum.WalkSpeed = currentSpeed
-            print("[ANTI CHEAT] Đã phát hiện và khắc phục giảm tốc độ!")
-        end
-    end
-end
-
--- Hàm set speed chính
-local function setSpeed(value)
-    local char = player.Character
-    if not char then return end
-    local hum = char:FindFirstChild("Humanoid")
-    if hum then
-        currentSpeed = math.floor(value)
-        if currentSpeed < 16 then currentSpeed = 16 end
-        if currentSpeed > 999999999 then currentSpeed = 999999999 end
-        hum.WalkSpeed = currentSpeed
-        currentSpeedLabel.Text = "📊 TỐC ĐỘ HIỆN TẠI: " .. currentSpeed
-        speedInput.Text = tostring(currentSpeed)
-        
-        -- Hiển thị cảnh báo nếu tốc độ quá cao
-        if currentSpeed > 300 then
-            warningFrame.Visible = true
-        else
-            warningFrame.Visible = false
-        end
-    end
-end
-
--- Xử lý nhập tốc độ
-applyBtn.MouseButton1Click:Connect(function()
-    local inputText = speedInput.Text
-    inputText = inputText:gsub("[%,%s]", "")
-    local success, result = pcall(function()
-        return tonumber(inputText) or currentSpeed
-    end)
-    if success and result then
-        local newSpeed = math.floor(result)
-        if newSpeed < 16 then newSpeed = 16 end
-        if newSpeed > 999999999 then newSpeed = 999999999 end
-        setSpeed(newSpeed)
-        print("[SPEED] Tốc độ đã set: " .. newSpeed)
-        
-        -- Thông báo
-        local notif = Instance.new("TextLabel")
-        notif.Parent = screenGui
-        notif.Size = UDim2.new(0, 200, 0, 35)
-        notif.Position = UDim2.new(0.5, -100, 0.85, 0)
-        notif.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-        notif.BackgroundTransparency = 0.4
-        notif.TextColor3 = Color3.fromRGB(100, 255, 100)
-        notif.Font = Enum.Font.GothamBold
-        notif.TextSize = 12
-        notif.Text = "⚡ TỐC ĐỘ: " .. newSpeed
-        Instance.new("UICorner", notif).CornerRadius = UDim.new(0, 8)
-        task.wait(1.5)
-        notif:Destroy()
-    else
-        speedInput.Text = tostring(currentSpeed)
-    end
-end)
-
--- Bật/tắt Speed
-local function enableSpeed()
-    if speedEnabled then return end
-    speedEnabled = true
-    saveOriginalSpeed()
-    setSpeed(currentSpeed)
-    
-    if not speedConnection then
-        speedConnection = RunService.RenderStepped:Connect(function()
-            if speedEnabled then
-                antiCheatSpeedFix()
-                antiDelayFix()
+    for _, other in pairs(Players:GetPlayers()) do
+        if other ~= player then
+            local otherChar = other.Character
+            if otherChar then
+                local otherRoot = otherChar:FindFirstChild("HumanoidRootPart")
+                local otherHead = otherChar:FindFirstChild("Head")
+                local otherHum = otherChar:FindFirstChild("Humanoid")
+                
+                if otherRoot and otherHead and otherHum and otherHum.Health > 0 then
+                    local dist = (myPos - otherRoot.Position).Magnitude
+                    if dist < closestDist then
+                        closestDist = dist
+                        closest = other
+                    end
+                end
             end
-        end)
+        end
     end
     
-    speedBtn.Text = "⚡ SPEED [ON]"
-    speedBtn.BackgroundColor3 = Color3.fromRGB(100, 150, 200)
-    print("[SPEED] ĐÃ BẬT | Tốc độ: " .. currentSpeed)
+    return closest
 end
-
-local function disableSpeed()
-    if not speedEnabled then return end
-    speedEnabled = false
-    
-    if speedConnection then
-        speedConnection:Disconnect()
-        speedConnection = nil
-    end
-    
-    restoreOriginalSpeed()
-    
-    speedBtn.Text = "⚡ SPEED [OFF]"
-    speedBtn.BackgroundColor3 = Color3.fromRGB(60, 100, 140)
-    print("[SPEED] ĐÃ TẮT")
-end
-
-speedBtn.MouseButton1Click:Connect(function()
-    if speedEnabled then
-        disableSpeed()
-    else
-        enableSpeed()
-    end
-end)
-
--- Xử lý khi nhân vật respawn
-player.CharacterAdded:Connect(function()
-    saveOriginalSpeed()
-    if speedEnabled then
-        task.wait(0.5)
-        setSpeed(currentSpeed)
-    end
-end)
-
--- Lưu tốc độ gốc khi script chạy
-task.wait(0.5)
-saveOriginalSpeed()
 
 --========================
--- PHÍM TẮT
+-- LOCK CAMERA (MƯỢT HOẶC CỨNG)
+--========================
+local function lockCameraHard(targetPosition)
+    local camera = workspace.CurrentCamera
+    if not camera or not targetPosition then return end
+    camera.CFrame = CFrame.new(camera.CFrame.Position, targetPosition)
+end
+
+local function lockCameraSmooth(targetPosition)
+    local camera = workspace.CurrentCamera
+    if not camera or not targetPosition then return end
+    
+    local currentCF = camera.CFrame
+    local targetCF = CFrame.new(currentCF.Position, targetPosition)
+    local newCF = currentCF:Lerp(targetCF, smoothness)
+    camera.CFrame = newCF
+end
+
+local function aimAt(target)
+    if not target then return end
+    
+    local targetChar = target.Character
+    if not targetChar then return end
+    
+    local head = targetChar:FindFirstChild("Head")
+    if not head then return end
+    
+    local headPos = head.Position
+    
+    if smoothness <= 0 then
+        lockCameraHard(headPos)
+    else
+        lockCameraSmooth(headPos)
+    end
+end
+
+--========================
+-- VÒNG LẶP CHÍNH
+--========================
+local function updateAimLock()
+    if not aimLockEnabled then return end
+    
+    local target = findClosestPlayer()
+    if target then
+        currentTarget = target
+        aimAt(target)
+    else
+        currentTarget = nil
+    end
+end
+
+local function startAimLock()
+    if aimConnection then aimConnection:Disconnect() end
+    aimConnection = RunService.RenderStepped:Connect(updateAimLock)
+end
+
+local function stopAimLock()
+    if aimConnection then
+        aimConnection:Disconnect()
+        aimConnection = nil
+    end
+    currentTarget = nil
+end
+
+--========================
+-- BẬT/TẮT AIM LOCK
+--========================
+local function enableAimLock()
+    if aimLockEnabled then return end
+    aimLockEnabled = true
+    startAimLock()
+    print("[AIM LOCK] ĐÃ BẬT | Độ mượt: " .. smoothness)
+end
+
+local function disableAimLock()
+    if not aimLockEnabled then return end
+    aimLockEnabled = false
+    stopAimLock()
+    print("[AIM LOCK] ĐÃ TẮT")
+end
+
+local function toggleAimLock()
+    if aimLockEnabled then
+        disableAimLock()
+    else
+        enableAimLock()
+    end
+end
+
+--========================
+-- PHÍM TẮT (PHÍM K)
 --========================
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
-    if input.KeyCode == Enum.KeyCode.L then
-        if speedEnabled then
-            disableSpeed()
-        else
-            enableSpeed()
-        end
+    if input.KeyCode == Enum.KeyCode.K then
+        toggleAimLock()
+        
+        -- Hiển thị thông báo
+        local notif = Instance.new("TextLabel")
+        notif.Parent = game.CoreGui
+        notif.Size = UDim2.new(0, 180, 0, 35)
+        notif.Position = UDim2.new(0.5, -90, 0.85, 0)
+        notif.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+        notif.BackgroundTransparency = 0.4
+        notif.TextColor3 = aimLockEnabled and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 100, 100)
+        notif.Font = Enum.Font.GothamBold
+        notif.TextSize = 12
+        notif.Text = aimLockEnabled and " AIM LOCK [ON]" or " AIM LOCK [OFF]"
+        Instance.new("UICorner", notif).CornerRadius = UDim.new(0, 8)
+        task.wait(1)
+        notif:Destroy()
     end
 end)
 
 --========================
--- MỞ/ĐÓNG GUI
+-- XỬ LÝ RESPAWN
 --========================
-closeBtn.MouseButton1Click:Connect(function()
-    mainFrame.Visible = false
+player.CharacterAdded:Connect(function()
+    if aimLockEnabled then
+        currentTarget = nil
+    end
 end)
 
-openBtn.MouseButton1Click:Connect(function()
-    mainFrame.Visible = not mainFrame.Visible
+--========================
+-- XỬ LÝ NGƯỜI CHƠI RỜI GAME
+--========================
+Players.PlayerRemoving:Connect(function(leavingPlayer)
+    if aimLockEnabled and currentTarget == leavingPlayer then
+        currentTarget = nil
+    end
 end)
+
+--========================
+-- HÀM EXPORT (DÙNG CHO NÚT GUI)
+--========================
+return {
+    toggle = toggleAimLock,
+    enable = enableAimLock,
+    disable = disableAimLock,
+    isEnabled = function() return aimLockEnabled end,
+    getCurrentTarget = function() return currentTarget end,
+    setSmoothness = function(value)
+        smoothness = math.clamp(value, 0, 1)
+        print("[AIM LOCK] Độ mượt: " .. smoothness)
+    end,
+    setDistance = function(value)
+        lockDistance = math.max(50, value)
+        print("[AIM LOCK] Khoảng cách lock: " .. lockDistance)
+    end
+}
