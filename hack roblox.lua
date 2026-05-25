@@ -439,3 +439,128 @@ end)
 -- Tạo nút trong GUI
 local jumpBtn = makeButton(" INFINITE JUMP", 2, 1, Color3.fromRGB(80, 100, 80))
 jumpBtn.MouseButton1Click:Connect(toggleJump)
+--========================
+-- AIM LOCK NPC (CHỈ LOCK NPC, KHÔNG LOCK PLAYER)
+--========================
+local player = game.Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+
+local aimEnabled = false
+local currentTarget = nil
+local aimConnection = nil
+local lockDistance = 100
+
+-- Kiểm tra có phải NPC không (không phải người chơi)
+local function isNPC(character)
+    if not character then return false end
+    
+    -- Không phải người chơi
+    if Players:GetPlayerFromCharacter(character) then
+        return false
+    end
+    
+    -- Có Humanoid
+    local hum = character:FindFirstChild("Humanoid")
+    if not hum then return false end
+    if hum.Health <= 0 then return false end
+    
+    return true
+end
+
+-- Tìm NPC gần nhất
+local function findClosestNPC()
+    local myChar = player.Character
+    if not myChar then return nil end
+    local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return nil end
+    
+    local myPos = myRoot.Position
+    local closest = nil
+    local closestDist = lockDistance
+    
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("Model") and obj:FindFirstChild("Humanoid") then
+            if isNPC(obj) then
+                local root = obj:FindFirstChild("HumanoidRootPart")
+                if root then
+                    local dist = (myPos - root.Position).Magnitude
+                    if dist < closestDist then
+                        closestDist = dist
+                        closest = obj
+                    end
+                end
+            end
+        end
+    end
+    
+    return closest
+end
+
+-- Lấy vị trí đầu của NPC
+local function getHeadPosition(npc)
+    if not npc then return nil end
+    local head = npc:FindFirstChild("Head")
+    if not head then
+        local root = npc:FindFirstChild("HumanoidRootPart")
+        if root then
+            return root.Position + Vector3.new(0, 1.5, 0)
+        end
+        return nil
+    end
+    return head.Position
+end
+
+-- Lock camera vào NPC
+local function aimAtNPC(target)
+    if not target then return end
+    local headPos = getHeadPosition(target)
+    if not headPos then return end
+    
+    local camera = workspace.CurrentCamera
+    if camera then
+        camera.CFrame = CFrame.new(camera.CFrame.Position, headPos)
+    end
+end
+
+-- Vòng lặp chính
+local function updateAimLock()
+    if not aimEnabled then return end
+    
+    local target = findClosestNPC()
+    if target then
+        currentTarget = target
+        aimAtNPC(target)
+    else
+        currentTarget = nil
+    end
+end
+
+-- Bật/tắt
+local function toggleAimLock()
+    aimEnabled = not aimEnabled
+    
+    if aimEnabled then
+        if aimConnection then aimConnection:Disconnect() end
+        aimConnection = RunService.RenderStepped:Connect(updateAimLock)
+        if aimBtn then
+            aimBtn.Text = " AIM NPC [ON]"
+            aimBtn.BackgroundColor3 = Color3.fromRGB(100, 70, 150)
+        end
+    else
+        if aimConnection then
+            aimConnection:Disconnect()
+            aimConnection = nil
+        end
+        currentTarget = nil
+        if aimBtn then
+            aimBtn.Text = " AIM NPC [OFF]"
+            aimBtn.BackgroundColor3 = Color3.fromRGB(80, 50, 120)
+        end
+    end
+end
+
+-- Tạo nút trong GUI
+local aimBtn = makeButton(" AIM NPC", 3, 1, Color3.fromRGB(80, 50, 120))
+aimBtn.MouseButton1Click:Connect(toggleAimLock)
