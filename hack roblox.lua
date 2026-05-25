@@ -459,45 +459,62 @@ RunService.RenderStepped:Connect(function()
                 if hrp and my then
                     local dir = (hrp.Position - my.Position).Unit
                     
-                    -- Gửi remote
-                    RS.Events.GameRemoteFunction:InvokeServer(
-                        "AttemptWeaponHit",
-                        {
-                            hitboxOffset = Vector3.new(0, 0, -1.5),
-                            knockback = 50,
-                            shouldLock = true,
-                            shouldSlow = true,
-                            attackCooldown = 0,
-                            hitboxSize = Vector3.new(9, 14, 8),
-                            lungeKnockback = 55,
-                            slowTime = 1.5,
-                            slowMult = 0.2,
-                            cycleIndex = 1,
-                            damage = 100,
-                            tool = LP.Character:FindFirstChildOfClass("Tool"),
-                            shouldLunge = true
-                        },
-                        {{
-                            knockback = 50,
-                            isClosestEnemy = true,
-                            origin = my.Position,
-                            enemyModel = plr.Character,
-                            distance = (hrp.Position - my.Position).Magnitude,
-                            direction = dir
-                        }}
-                    )
+                    pcall(function()
+                        RS.Events.GameRemoteFunction:InvokeServer(
+                            "AttemptWeaponHit",
+                            {
+                                hitboxOffset = Vector3.new(0, 0, -1.5),
+                                knockback = 50,
+                                shouldLock = true,
+                                shouldSlow = true,
+                                attackCooldown = 0,
+                                hitboxSize = Vector3.new(9, 14, 8),
+                                lungeKnockback = 55,
+                                slowTime = 1.5,
+                                slowMult = 0.2,
+                                cycleIndex = 1,
+                                damage = 100,
+                                tool = LP.Character:FindFirstChildOfClass("Tool"),
+                                shouldLunge = true
+                            },
+                            {{
+                                knockback = 50,
+                                isClosestEnemy = true,
+                                origin = my.Position,
+                                enemyModel = plr.Character,
+                                distance = (hrp.Position - my.Position).Magnitude,
+                                direction = dir
+                            }}
+                        )
+                    end)
                 end
             end
         end
     end
 end)
 
--- Toggle (gán vào nút)
 local function toggleAutoHit()
     AutoHit = not AutoHit
     print("Auto Hit:", AutoHit and "ON" or "OFF")
 end
--- Tạo nút (dùng makeButton)
-local hitBtn = makeButton(" AUTO HIT", 4, 1, Color3.fromRGB(180, 50, 50))
-hitBtn.MouseButton1Click:Connect(toggleAutoHit)
-đúng chx
+
+-- Tạo nút (nổi trên màn hình, kéo thả được)
+local hitBtn = Instance.new("TextButton")
+hitBtn.Size = UDim2.new(0, 150, 0, 45)
+hitBtn.Position = UDim2.new(0.02, 0, 0.75, 0)
+hitBtn.Text = " AUTO HIT [OFF]"
+hitBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+hitBtn.BackgroundTransparency = 0.15
+hitBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+hitBtn.TextSize = 14
+hitBtn.Font = Enum.Font.GothamBold
+hitBtn.BorderSizePixel = 0
+hitBtn.Draggable = true
+hitBtn.Parent = game.CoreGui
+Instance.new("UICorner", hitBtn).CornerRadius = UDim.new(0, 10)
+
+hitBtn.MouseButton1Click:Connect(function()
+    toggleAutoHit()
+    hitBtn.Text = AutoHit and " AUTO HIT [ON]" or " AUTO HIT [OFF]"
+    hitBtn.BackgroundColor3 = AutoHit and Color3.fromRGB(200, 80, 80) or Color3.fromRGB(180, 50, 50)
+end)
