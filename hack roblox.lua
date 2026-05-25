@@ -440,132 +440,212 @@ end)
 local jumpBtn = makeButton(" INFINITE JUMP", 2, 1, Color3.fromRGB(80, 100, 80))
 jumpBtn.MouseButton1Click:Connect(toggleJump)
 --========================
--- DAMAGE MODEL THẬT (VẬT THỂ GÂY SÁT THƯƠNG)
+-- MELEE WEAPON (VŨ KHÍ CẦM TAY GÂY SÁT THƯƠNG)
 --========================
 local player = game.Players.LocalPlayer
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
-local modelEnabled = false
-local currentModel = nil
-local shootConnection = nil
+local weaponEnabled = false
+local currentWeapon = nil
+local attackCooldown = false
 
--- Tạo model gây sát thương
-local function createDamageModel()
+-- Tạo vũ khí (gậy/kiếm) để cầm
+local function createWeapon()
     local char = player.Character
     if not char then return nil end
     
-    local root = char:FindFirstChild("HumanoidRootPart")
-    if not root then return nil end
+    local rightHand = char:FindFirstChild("RightHand")
+    if not rightHand then return nil end
     
-    -- Tạo model chính
-    local model = Instance.new("Model")
-    model.Name = "DamageModel"
+    -- Tạo model vũ khí
+    local weapon = Instance.new("Model")
+    weapon.Name = "MeleeWeapon"
     
-    -- Tạo phần chính (hình cầu)
-    local mainPart = Instance.new("Part")
-    mainPart.Name = "MainPart"
-    mainPart.Size = Vector3.new(1.5, 1.5, 1.5)
-    mainPart.Shape = Enum.PartType.Ball
-    mainPart.BrickColor = BrickColor.new("Really red")
-    mainPart.Material = Enum.Material.Neon
-    mainPart.Position = root.Position + Vector3.new(0, 2, 0)
-    mainPart.Parent = model
+    -- Phần chính (thân kiếm/gậy)
+    local handle = Instance.new("Part")
+    handle.Name = "Handle"
+    handle.Size = Vector3.new(0.5, 1, 0.5)
+    handle.BrickColor = BrickColor.new("Dark stone grey")
+    handle.Material = Enum.Material.SmoothPlastic
+    handle.Parent = weapon
     
-    -- Tạo lửa xung quanh (hiệu ứng)
-    local fire = Instance.new("Fire")
-    fire.Size = 5
-    fire.Heat = 15
-    fire.Parent = mainPart
+    -- Lưỡi / phần gây sát thương
+    local blade = Instance.new("Part")
+    blade.Name = "Blade"
+    blade.Size = Vector3.new(0.3, 3, 0.8)
+    blade.Position = Vector3.new(0, 1.8, 0)
+    blade.BrickColor = BrickColor.new("Really red")
+    blade.Material = Enum.Material.Neon
+    blade.Parent = weapon
     
-    -- Tạo điểm sáng
+    -- Khớp nối để gắn vào tay
+    local weld = Instance.new("Weld")
+    weld.Part0 = rightHand
+    weld.Part1 = handle
+    weld.C0 = rightHand.CFrame
+    weld.C1 = CFrame.new(0, 0.5, -0.5)
+    weld.Parent = handle
+    
+    -- Hiệu ứng phát sáng
     local pointLight = Instance.new("PointLight")
-    pointLight.Color = Color3.fromRGB(255, 0, 0)
-    pointLight.Range = 15
-    pointLight.Brightness = 2
-    pointLight.Parent = mainPart
+    pointLight.Color = Color3.fromRGB(255, 50, 50)
+    pointLight.Range = 8
+    pointLight.Brightness = 1
+    pointLight.Parent = blade
     
-    -- Tạo BodyVelocity để di chuyển
-    local bodyVel = Instance.new("BodyVelocity")
-    bodyVel.MaxForce = Vector3.new(1, 1, 1) * 10000
-    bodyVel.Parent = mainPart
+    -- Particle (bụi đỏ)
+    local particles = Instance.new("ParticleEmitter")
+    particles.Texture = "rbxassetid://129909788"
+    particles.Color = ColorSequence.new(Color3.fromRGB(255, 0, 0))
+    particles.Rate = 0
+    particles.Parent = blade
     
-    -- Tạo BodyGyro để xoay theo hướng
-    local bodyGyro = Instance.new("BodyGyro")
-    bodyGyro.MaxTorque = Vector3.new(1, 1, 1) * 10000
-    bodyGyro.Parent = mainPart
+    weapon.Parent = char
     
-    -- Xử lý va chạm gây sát thương
-    mainPart.Touched:Connect(function(hit)
-        if not model.Parent then return end
-        
-        -- Tìm người chơi bị va chạm
-        local hitChar = hit:FindFirstAncestorWhichIsA("Model")
-        if hitChar and hitChar:FindFirstChild("Humanoid") then
+    return weapon, blade, particles, weld
+end
+
+-- Gây sát thương
+local function dealDamage(target)
+    if not target then return false end
+    
+    local targetChar = target.Character
+    if not targetChar then return false end
+    
+    local hum = targetChar:FindFirstChild("Humanoid")
+    if not hum then return false end
+    if hum.Health <= 0 then return false end
+    
+    -- Gây sát thương (50 máu)
+    hum.Health = hum.Health - 50
+    
+    -- Hiệu ứng khi đánh trúng
+    local attachment = Instance.new("Attachment")
+    attachment.Parent = targetChar:FindFirstChild("Head") or targetChar:FindFirstChild("HumanoidRootPart")
+    
+    local particle = Instance.new("ParticleEmitter")
+    particle.Texture = "rbxassetid://129909788"
+    particle.Color = ColorSequence.new(Color3.fromRGB(255, 0, 0))
+    particle.Lifetime = NumberRange.new(0.3)
+    particle.Rate = 50
+    particle.Parent = attachment
+    
+    task.spawn(function()
+        task.wait(0.2)
+        particle:Destroy()
+        attachment:Destroy()
+    end)
+    
+    print("[MELEE] Đã đánh " .. target.Name .. " - Máu còn: " .. hum.Health)
+    return true
+end
+
+-- Kiểm tra va chạm của lưỡi kiếm
+local function checkHit(blade)
+    if not blade then return end
+    
+    local hitParts = blade:GetTouchingParts()
+    for _, part in pairs(hitParts) do
+        local hitChar = part:FindFirstAncestorWhichIsA("Model")
+        if hitChar then
             local targetPlayer = game.Players:GetPlayerFromCharacter(hitChar)
             if targetPlayer and targetPlayer ~= player then
-                local hum = hitChar:FindFirstChild("Humanoid")
-                if hum and hum.Health > 0 then
-                    -- Gây sát thương
-                    hum.Health = hum.Health - 50
-                    
-                    -- Hiệu ứng nổ nhỏ
-                    local explosion = Instance.new("Explosion")
-                    explosion.BlastRadius = 3
-                    explosion.BlastPressure = 10000
-                    explosion.Position = hit.Position
-                    explosion.Parent = workspace
-                    
-                    -- Xóa model sau khi gây damage
-                    model:Destroy()
-                end
+                return targetPlayer
             end
         end
+    end
+    return nil
+end
+
+-- Animation khi đánh
+local function swingAnimation(blade, particles)
+    if not blade then return end
+    
+    -- Xoay lưỡi kiếm
+    local originalCF = blade.CFrame
+    local forward = blade.CFrame * CFrame.Angles(0, 0, math.rad(-60))
+    local back = blade.CFrame * CFrame.Angles(0, 0, math.rad(60))
+    
+    -- Bật particle
+    if particles then
+        particles.Rate = 200
+    end
+    
+    -- Quạt tới
+    for i = 1, 10 do
+        blade.CFrame = originalCF:Lerp(forward, i/10)
+        task.wait(0.01)
         
-        -- Xóa khi va chạm với tường/đất
-        if hit.Material ~= Enum.Material.Air then
-            model:Destroy()
+        -- Kiểm tra va chạm trong khi đánh
+        local hitTarget = checkHit(blade)
+        if hitTarget and not attackCooldown then
+            attackCooldown = true
+            dealDamage(hitTarget)
+            task.wait(0.3)
+            attackCooldown = false
         end
-    end)
+    end
     
-    return model, mainPart, bodyVel, bodyGyro
+    -- Quạt lui
+    for i = 1, 10 do
+        blade.CFrame = forward:Lerp(originalCF, i/10)
+        task.wait(0.01)
+    end
+    
+    -- Tắt particle
+    if particles then
+        particles.Rate = 0
+    end
 end
 
--- Bắn model về phía con trỏ chuột
-local function shootModel()
-    local char = player.Character
-    if not char then return end
+-- Bật/tắt vũ khí
+local function toggleWeapon()
+    weaponEnabled = not weaponEnabled
     
-    local root = char:FindFirstChild("HumanoidRootPart")
-    if not root then return end
-    
-    local mouse = player:GetMouse()
-    if not mouse then return end
-    
-    -- Tạo model
-    local model, mainPart, bodyVel, bodyGyro = createDamageModel()
-    if not model then return end
-    
-    model.Parent = workspace
-    currentModel = model
-    
-    -- Tính hướng bắn
-    local direction = (mouse.Hit.p - root.Position).Unit
-    local speed = 150
-    
-    -- Set vận tốc
-    bodyVel.Velocity = direction * speed
-    
-    -- Xoay theo hướng bay
-    RunService.RenderStepped:Connect(function()
-        if model and model.Parent then
-            bodyGyro.CFrame = CFrame.lookAt(mainPart.Position, mainPart.Position + direction)
+    if weaponEnabled then
+        local weapon, blade, particles, weld = createWeapon()
+        if weapon then
+            currentWeapon = {weapon = weapon, blade = blade, particles = particles, weld = weld}
+            weaponBtn.Text = " MELEE [ON]"
+            weaponBtn.BackgroundColor3 = Color3.fromRGB(180, 80, 100)
+            print("[MELEE] ĐÃ CẦM VŨ KHÍ - Nhấn R để đánh")
+        else
+            print("[ERROR] Không thể tạo vũ khí")
+            weaponEnabled = false
         end
-    end)
-    
-    print("[DAMAGE MODEL] Đã bắn! Sát thương: 50")
+    else
+        if currentWeapon and currentWeapon.weapon then
+            currentWeapon.weapon:Destroy()
+            currentWeapon = nil
+        end
+        weaponBtn.Text = " MELEE [OFF]"
+        weaponBtn.BackgroundColor3 = Color3.fromRGB(80, 60, 80)
+        print("[MELEE] ĐÃ CẤT VŨ KHÍ")
+    end
 end
 
--- Tạo nút bắn
-local shootBtn = makeButton("💥 BẮN MODEL", 4, 1, Color3.fromRGB(200, 50, 50))
-shootBtn.MouseButton1Click:Connect(shootModel)
+-- Đánh khi nhấn phím R
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.R and weaponEnabled and currentWeapon then
+        swingAnimation(currentWeapon.blade, currentWeapon.particles)
+    end
+end)
 
+-- Xử lý khi nhân vật respawn
+player.CharacterAdded:Connect(function()
+    if weaponEnabled then
+        weaponEnabled = false
+        if currentWeapon then
+            currentWeapon.weapon:Destroy()
+            currentWeapon = nil
+        end
+        task.wait(0.5)
+        toggleWeapon()
+    end
+end)
+
+-- Tạo nút trong GUI
+local weaponBtn = makeButton(" MELEE", 3, 1, Color3.fromRGB(80, 60, 80))
+weaponBtn.MouseButton1Click:Connect(toggleWeapon)
