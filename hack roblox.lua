@@ -1,33 +1,30 @@
 -- LocalScript trong StarterPlayerScripts
 
 local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
--- Tạo ScreenGui
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "MyGui"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = playerGui
 
--- Tạo button có thể kéo thả
+-- Button kéo thả
 local dragButton = Instance.new("TextButton")
 dragButton.Size = UDim2.new(0, 50, 0, 50)
-dragButton.Position = UDim2.new(0.5, -25, 0.5, -25)
-dragButton.Text = "☰"
+dragButton.Position = UDim2.new(0, 100, 0, 100)
+dragButton.Text = "🇻🇳"
 dragButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 dragButton.TextColor3 = Color3.new(1, 1, 1)
 dragButton.Parent = screenGui
 
--- Bo góc
 local corner = Instance.new("UICorner")
 corner.CornerRadius = UDim.new(1, 0)
 corner.Parent = dragButton
 
--- Tạo menu (ẩn mặc định)
+-- Menu
 local menu = Instance.new("Frame")
 menu.Size = UDim2.new(0, 200, 0, 150)
-menu.Position = UDim2.new(0.5, -100, 0.5, -75)
 menu.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 menu.Visible = false
 menu.Parent = screenGui
@@ -42,17 +39,24 @@ label.TextColor3 = Color3.new(1, 1, 1)
 label.BackgroundTransparency = 1
 label.Parent = menu
 
--- Bấm button để toggle menu
-dragButton.MouseButton1Click:Connect(function()
-    menu.Visible = not menu.Visible
-end)
+-- Cập nhật vị trí menu theo button
+local function updateMenuPos()
+    local bPos = dragButton.Position
+    menu.Position = UDim2.new(
+        bPos.X.Scale, bPos.X.Offset + 55,
+        bPos.Y.Scale, bPos.Y.Offset
+    )
+end
 
--- Kéo thả button
-local dragging, dragInput, dragStart, startPos
+-- Drag logic
+local dragging = false
+local wasDragged = false
+local dragStart, startPos
 
 dragButton.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
         dragging = true
+        wasDragged = false
         dragStart = input.Position
         startPos = dragButton.Position
     end
@@ -61,17 +65,27 @@ end)
 dragButton.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
         dragging = false
+        -- Chỉ toggle menu nếu KHÔNG kéo
+        if not wasDragged then
+            menu.Visible = not menu.Visible
+            updateMenuPos()
+        end
     end
 end)
 
-game:GetService("UserInputService").InputChanged:Connect(function(input)
+UIS.InputChanged:Connect(function(input)
     if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
         local delta = input.Position - dragStart
+        -- Chỉ tính là "kéo" nếu di chuyển > 5px
+        if math.abs(delta.X) > 5 or math.abs(delta.Y) > 5 then
+            wasDragged = true
+        end
         dragButton.Position = UDim2.new(
-            startPos.X.Scale,
-            startPos.X.Offset + delta.X,
-            startPos.Y.Scale,
-            startPos.Y.Offset + delta.Y
+            startPos.X.Scale, startPos.X.Offset + delta.X,
+            startPos.Y.Scale, startPos.Y.Offset + delta.Y
         )
+        if menu.Visible then
+            updateMenuPos()
+        end
     end
 end)
