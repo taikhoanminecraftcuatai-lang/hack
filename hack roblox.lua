@@ -440,7 +440,7 @@ end)
 local jumpBtn = makeButton(" INFINITE JUMP", 2, 1, Color3.fromRGB(80, 100, 80))
 jumpBtn.MouseButton1Click:Connect(toggleJump)
 --========================
--- AUTO HIT ALL (CHÉP NGUYÊN BẢN VÀO LÀ CHẠY)
+-- AUTO HIT ALL (DÁN VÀO CUỐI SCRIPT)
 --========================
 local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
@@ -454,48 +454,34 @@ local hitDelay = 0.1
 
 -- Tìm remote gây sát thương
 local function findDamageRemote()
-    -- Danh sách tên remote thường dùng
-    local names = {"Damage", "Hit", "Attack", "TakeDamage", "DealDamage", "GameRemoteFunction", "RemoteEvent"}
-    
+    local names = {"Damage", "Hit", "Attack", "TakeDamage", "DealDamage", "GameRemoteFunction"}
     for _, name in pairs(names) do
         local remote = RS:FindFirstChild(name)
-        if remote then
-            return remote, name
-        end
+        if remote then return remote, name end
     end
-    
-    -- Tìm bất kỳ remote nào
     for _, obj in pairs(RS:GetChildren()) do
         if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
             return obj, obj.Name
         end
     end
-    
     return nil, nil
 end
 
--- Gây sát thương cho 1 người
+-- Gây sát thương
 local function dealDamageToPlayer(target)
-    if not target then return false end
-    if target == LP then return false end
-    
+    if not target or target == LP then return false end
     local char = target.Character
     if not char then return false end
-    
     local hum = char:FindFirstChild("Humanoid")
-    if not hum then return false end
-    if hum.Health <= 0 then return false end
-    
+    if not hum or hum.Health <= 0 then return false end
     local hrp = char:FindFirstChild("HumanoidRootPart")
     if not hrp then return false end
     
     local myChar = LP.Character
     if not myChar then return false end
-    
     local myRoot = myChar:FindFirstChild("HumanoidRootPart")
     if not myRoot then return false end
     
-    -- Kiểm tra khoảng cách
     local dist = (hrp.Position - myRoot.Position).Magnitude
     if dist > 60 then return false end
     
@@ -504,45 +490,25 @@ local function dealDamageToPlayer(target)
         if not hitRemote then return false end
     end
     
-    -- Thử các cách gửi remote
-    local success = false
     pcall(function()
         if hitRemote:IsA("RemoteEvent") then
-            -- Cách 1: Gửi target
             hitRemote:FireServer(target)
-            -- Cách 2: Gửi humanoid
             hitRemote:FireServer(hum)
-            -- Cách 3: Gửi vị trí
             hitRemote:FireServer(hrp.Position)
-            -- Cách 4: Gửi damage số
             hitRemote:FireServer(100)
-            success = true
         elseif hitRemote:IsA("RemoteFunction") then
             hitRemote:InvokeServer(target)
-            success = true
         end
     end)
-    
-    return success
+    return true
 end
 
--- Tấn công tất cả người chơi
+-- Tấn công tất cả
 local function attackAll()
-    local currentTime = tick()
-    if currentTime - lastHitTime < hitDelay then return end
-    lastHitTime = currentTime
-    
-    local hitCount = 0
+    if tick() - lastHitTime < hitDelay then return end
+    lastHitTime = tick()
     for _, plr in pairs(Players:GetPlayers()) do
-        if plr ~= LP then
-            if dealDamageToPlayer(plr) then
-                hitCount = hitCount + 1
-            end
-        end
-    end
-    
-    if hitCount > 0 then
-        print("[AUTO HIT] Đã tấn công " .. hitCount .. " người chơi")
+        if plr ~= LP then dealDamageToPlayer(plr) end
     end
 end
 
@@ -551,37 +517,36 @@ local function toggleAutoHit()
     AutoHit = not AutoHit
     if AutoHit then
         hitRemote, _ = findDamageRemote()
-        if hitRemote then
-            print("[AUTO HIT] ĐÃ BẬT - Remote: " .. hitRemote.Name)
-        else
-            print("[AUTO HIT] CẢNH BÁO: Không tìm thấy remote, có thể không hoạt động")
-        end
+        print("[AUTO HIT] ĐÃ BẬT" .. (hitRemote and " - Remote: " .. hitRemote.Name or " - KHÔNG TÌM THẤY REMOTE"))
     else
         print("[AUTO HIT] ĐÃ TẮT")
     end
+    if autoHitBtn then
+        autoHitBtn.Text = AutoHit and " AUTO HIT [ON]" or " AUTO HIT [OFF]"
+        autoHitBtn.BackgroundColor3 = AutoHit and Color3.fromRGB(150, 50, 80) or Color3.fromRGB(80, 50, 80)
+    end
 end
 
--- Vòng lặp chính
+-- Vòng lặp
 RunService.RenderStepped:Connect(function()
-    if AutoHit then
-        attackAll()
-    end
+    if AutoHit then attackAll() end
 end)
 
--- Tạo nút (dùng makeButton nếu có, không thì tự tạo)
-local btn = Instance.new("TextButton")
-btn.Size = UDim2.new(0, 150, 0, 40)
-btn.Position = UDim2.new(0.5, -75, 0.7, 0)
-btn.Text = " AUTO HIT [OFF]"
-btn.BackgroundColor3 = Color3.fromRGB(80, 50, 80)
-btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-btn.Font = Enum.Font.GothamBold
-btn.TextSize = 14
-btn.Parent = game.CoreGui
-Instance.new("UICorner", btn)
-
-btn.MouseButton1Click:Connect(function()
-    toggleAutoHit()
-    btn.Text = AutoHit and " AUTO HIT [ON]" or " AUTO HIT [OFF]"
-    btn.BackgroundColor3 = AutoHit and Color3.fromRGB(150, 50, 80) or Color3.fromRGB(80, 50, 80)
-end)
+-- Tạo nút (dùng makeButton nếu có)
+local autoHitBtn = nil
+if makeButton then
+    autoHitBtn = makeButton(" AUTO HIT", 3, 1, Color3.fromRGB(80, 50, 80))
+    autoHitBtn.MouseButton1Click:Connect(toggleAutoHit)
+else
+    autoHitBtn = Instance.new("TextButton")
+    autoHitBtn.Size = UDim2.new(0, 150, 0, 40)
+    autoHitBtn.Position = UDim2.new(0.5, -75, 0.8, 0)
+    autoHitBtn.Text = " AUTO HIT [OFF]"
+    autoHitBtn.BackgroundColor3 = Color3.fromRGB(80, 50, 80)
+    autoHitBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    autoHitBtn.Font = Enum.Font.GothamBold
+    autoHitBtn.TextSize = 14
+    autoHitBtn.Parent = game.CoreGui
+    Instance.new("UICorner", autoHitBtn)
+    autoHitBtn.MouseButton1Click:Connect(toggleAutoHit)
+end
