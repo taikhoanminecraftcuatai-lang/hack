@@ -1,5 +1,5 @@
 --========================
--- GUI RỖNG (DÙNG makeButton)
+-- TOOl
 --========================
 local player = game.Players.LocalPlayer
 local TweenService = game:GetService("TweenService")
@@ -440,168 +440,132 @@ end)
 local jumpBtn = makeButton(" INFINITE JUMP", 2, 1, Color3.fromRGB(80, 100, 80))
 jumpBtn.MouseButton1Click:Connect(toggleJump)
 --========================
--- AIR WALK PRO MAX (KHÔNG BỊ NÂNG LÊN)
+-- DAMAGE MODEL THẬT (VẬT THỂ GÂY SÁT THƯƠNG)
 --========================
 local player = game.Players.LocalPlayer
 local RunService = game:GetService("RunService")
 
-local airWalkEnabled = false
-local airWalkConnection = nil
-local platformList = {}
-local maxPlatforms = 20
-local lastCreateTime = 0
-local createDelay = 0.15  -- Chờ 0.15 giây mới tạo platform tiếp theo
+local modelEnabled = false
+local currentModel = nil
+local shootConnection = nil
 
--- Tạo platform
-local function createPlatform()
+-- Tạo model gây sát thương
+local function createDamageModel()
     local char = player.Character
     if not char then return nil end
     
     local root = char:FindFirstChild("HumanoidRootPart")
     if not root then return nil end
     
-    local hum = char:FindFirstChild("Humanoid")
-    if not hum then return nil end
+    -- Tạo model chính
+    local model = Instance.new("Model")
+    model.Name = "DamageModel"
     
-    -- Chỉ tạo khi đang ở trên không VÀ đang rơi xuống
-    if hum.FloorMaterial ~= Enum.Material.Air then
-        return nil
-    end
+    -- Tạo phần chính (hình cầu)
+    local mainPart = Instance.new("Part")
+    mainPart.Name = "MainPart"
+    mainPart.Size = Vector3.new(1.5, 1.5, 1.5)
+    mainPart.Shape = Enum.PartType.Ball
+    mainPart.BrickColor = BrickColor.new("Really red")
+    mainPart.Material = Enum.Material.Neon
+    mainPart.Position = root.Position + Vector3.new(0, 2, 0)
+    mainPart.Parent = model
     
-    -- Kiểm tra vận tốc rơi (đang rơi xuống mới tạo)
-    local velocity = root.AssemblyLinearVelocity
-    if velocity.Y > -10 then
-        return nil  -- Không tạo nếu đang đi lên hoặc rơi chậm
-    end
+    -- Tạo lửa xung quanh (hiệu ứng)
+    local fire = Instance.new("Fire")
+    fire.Size = 5
+    fire.Heat = 15
+    fire.Parent = mainPart
     
-    -- Vị trí dưới chân (thấp hơn 3 studs để tránh bị nâng)
-    local pos = root.Position - Vector3.new(0, 3.5, 0)
+    -- Tạo điểm sáng
+    local pointLight = Instance.new("PointLight")
+    pointLight.Color = Color3.fromRGB(255, 0, 0)
+    pointLight.Range = 15
+    pointLight.Brightness = 2
+    pointLight.Parent = mainPart
     
-    -- Làm tròn vị trí
-    local roundedPos = Vector3.new(math.floor(pos.X * 2) / 2, pos.Y, math.floor(pos.Z * 2) / 2)
+    -- Tạo BodyVelocity để di chuyển
+    local bodyVel = Instance.new("BodyVelocity")
+    bodyVel.MaxForce = Vector3.new(1, 1, 1) * 10000
+    bodyVel.Parent = mainPart
     
-    -- Xóa platform cũ nếu quá nhiều
-    if #platformList >= maxPlatforms then
-        local oldest = table.remove(platformList, 1)
-        if oldest and oldest.Parent then
-            oldest:Destroy()
-        end
-    end
+    -- Tạo BodyGyro để xoay theo hướng
+    local bodyGyro = Instance.new("BodyGyro")
+    bodyGyro.MaxTorque = Vector3.new(1, 1, 1) * 10000
+    bodyGyro.Parent = mainPart
     
-    -- Tạo platform
-    local platform = Instance.new("Part")
-    platform.Name = "AirWalkPlatform"
-    platform.Size = Vector3.new(2.5, 0.2, 2.5)
-    platform.Position = roundedPos
-    platform.Anchored = true
-    platform.CanCollide = true
-    platform.Transparency = 1
-    platform.Material = Enum.Material.Air
-    platform.Parent = workspace
-    
-    table.insert(platformList, platform)
-    
-    -- Xóa sau 2 giây
-    task.spawn(function()
-        task.wait(2)
-        if platform and platform.Parent then
-            platform:Destroy()
-            for i, p in pairs(platformList) do
-                if p == platform then
-                    table.remove(platformList, i)
-                    break
+    -- Xử lý va chạm gây sát thương
+    mainPart.Touched:Connect(function(hit)
+        if not model.Parent then return end
+        
+        -- Tìm người chơi bị va chạm
+        local hitChar = hit:FindFirstAncestorWhichIsA("Model")
+        if hitChar and hitChar:FindFirstChild("Humanoid") then
+            local targetPlayer = game.Players:GetPlayerFromCharacter(hitChar)
+            if targetPlayer and targetPlayer ~= player then
+                local hum = hitChar:FindFirstChild("Humanoid")
+                if hum and hum.Health > 0 then
+                    -- Gây sát thương
+                    hum.Health = hum.Health - 50
+                    
+                    -- Hiệu ứng nổ nhỏ
+                    local explosion = Instance.new("Explosion")
+                    explosion.BlastRadius = 3
+                    explosion.BlastPressure = 10000
+                    explosion.Position = hit.Position
+                    explosion.Parent = workspace
+                    
+                    -- Xóa model sau khi gây damage
+                    model:Destroy()
                 end
             end
         end
+        
+        -- Xóa khi va chạm với tường/đất
+        if hit.Material ~= Enum.Material.Air then
+            model:Destroy()
+        end
     end)
     
-    return platform
+    return model, mainPart, bodyVel, bodyGyro
 end
 
--- Vòng lặp
-local function updateAirWalk()
-    if not airWalkEnabled then return end
-    
+-- Bắn model về phía con trỏ chuột
+local function shootModel()
     local char = player.Character
     if not char then return end
     
-    local hum = char:FindFirstChild("Humanoid")
-    if not hum then return end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
     
-    local currentTime = tick()
+    local mouse = player:GetMouse()
+    if not mouse then return end
     
-    -- Chỉ tạo khi đang ở trên không VÀ đang rơi xuống
-    if hum.FloorMaterial == Enum.Material.Air then
-        local root = char:FindFirstChild("HumanoidRootPart")
-        if root then
-            local velocity = root.AssemblyLinearVelocity
-            -- Đang rơi xuống (velocity.Y < 0) và tốc độ rơi đủ lớn
-            if velocity.Y < 0 and math.abs(velocity.Y) > 5 and currentTime - lastCreateTime > createDelay then
-                lastCreateTime = currentTime
-                createPlatform()
-            end
+    -- Tạo model
+    local model, mainPart, bodyVel, bodyGyro = createDamageModel()
+    if not model then return end
+    
+    model.Parent = workspace
+    currentModel = model
+    
+    -- Tính hướng bắn
+    local direction = (mouse.Hit.p - root.Position).Unit
+    local speed = 150
+    
+    -- Set vận tốc
+    bodyVel.Velocity = direction * speed
+    
+    -- Xoay theo hướng bay
+    RunService.RenderStepped:Connect(function()
+        if model and model.Parent then
+            bodyGyro.CFrame = CFrame.lookAt(mainPart.Position, mainPart.Position + direction)
         end
-    end
+    end)
+    
+    print("[DAMAGE MODEL] Đã bắn! Sát thương: 50")
 end
 
--- Bật
-local function enableAirWalk()
-    if airWalkEnabled then return end
-    airWalkEnabled = true
-    lastCreateTime = 0
-    
-    if airWalkConnection then airWalkConnection:Disconnect() end
-    airWalkConnection = RunService.RenderStepped:Connect(updateAirWalk)
-    
-    if airWalkBtn then
-        airWalkBtn.Text = " AIR WALK [ON]"
-        airWalkBtn.BackgroundColor3 = Color3.fromRGB(100, 150, 180)
-    end
-    print("[AIR WALK] ĐÃ BẬT - Nhảy lên và di chuyển, sẽ tạo đường dưới chân khi rơi")
-end
+-- Tạo nút bắn
+local shootBtn = makeButton("💥 BẮN MODEL", 4, 1, Color3.fromRGB(200, 50, 50))
+shootBtn.MouseButton1Click:Connect(shootModel)
 
--- Tắt
-local function disableAirWalk()
-    if not airWalkEnabled then return end
-    airWalkEnabled = false
-    
-    if airWalkConnection then
-        airWalkConnection:Disconnect()
-        airWalkConnection = nil
-    end
-    
-    for _, platform in pairs(platformList) do
-        if platform and platform.Parent then
-            platform:Destroy()
-        end
-    end
-    platformList = {}
-    
-    if airWalkBtn then
-        airWalkBtn.Text = " AIR WALK [OFF]"
-        airWalkBtn.BackgroundColor3 = Color3.fromRGB(80, 100, 120)
-    end
-    print("[AIR WALK] ĐÃ TẮT")
-end
-
-local function toggleAirWalk()
-    if airWalkEnabled then
-        disableAirWalk()
-    else
-        enableAirWalk()
-    end
-end
-
-player.CharacterAdded:Connect(function()
-    if airWalkEnabled then
-        for _, platform in pairs(platformList) do
-            if platform and platform.Parent then
-                platform:Destroy()
-            end
-        end
-        platformList = {}
-    end
-end)
-
-local airWalkBtn = makeButton(" AIR WALK", 3, 1, Color3.fromRGB(80, 100, 120))
-airWalkBtn.MouseButton1Click:Connect(toggleAirWalk)
