@@ -234,7 +234,7 @@ local function startTimer()
         local vehicle = findCurrentVehicle()
         if vehicle then
             -- Tăng vô hạn, không giới hạn
-            currentSpeed = currentSpeed + 2
+            currentSpeed = currentSpeed + 5
             setVehicleSpeed(vehicle, currentSpeed)
             updateSpeedDisplay()
         end
