@@ -234,7 +234,7 @@ local function startTimer()
         local vehicle = findCurrentVehicle()
         if vehicle then
             -- Tăng vô hạn, không giới hạn
-            currentSpeed = currentSpeed + 5
+            currentSpeed = currentSpeed + 45
             setVehicleSpeed(vehicle, currentSpeed)
             updateSpeedDisplay()
         end
@@ -256,7 +256,7 @@ local function enableSpeed()
     startTimer()
     
     if speedBtn then
-        speedBtn.Text = "⚡ BOOST [ON]"
+        speedBtn.Text = " BOOST [ON]"
         speedBtn.BackgroundColor3 = Color3.fromRGB(100, 150, 200)
     end
     print("[BOOST] ĐÃ BẬT - Mỗi 0.5 giây tăng 2 (vô hạn)")
@@ -279,7 +279,7 @@ local function disableSpeed()
     currentSpeed = 0
     
     if speedBtn then
-        speedBtn.Text = "⚡ BOOST [OFF]"
+        speedBtn.Text = " BOOST [OFF]"
         speedBtn.BackgroundColor3 = Color3.fromRGB(60, 100, 140)
     end
     print("[BOOST] ĐÃ TẮT")
@@ -311,7 +311,7 @@ end)
 --========================
 -- TẠO NÚT
 --========================
-local speedBtn = makeButton("⚡ BOOST XE", 1, 1, Color3.fromRGB(60, 100, 140))
+local speedBtn = makeButton("BOOST XE", 1, 1, Color3.fromRGB(60, 100, 140))
 speedBtn.MouseButton1Click:Connect(toggleSpeed)
 
 --========================
@@ -324,11 +324,3 @@ end)
 openBtn.MouseButton1Click:Connect(function()
     mainFrame.Visible = not mainFrame.Visible
 end)
-
-print("=" .. string.rep("=", 55))
-print("⚡ SPEED HUB - TĂNG VÔ HẠN")
-print("📌 Mỗi 0.5 giây tăng 2 KM/H")
-print("📌 Không giới hạn tốc độ tối đa")
-print("📌 Tắt boost hoặc respawn để reset")
-print("🎮 Phím L để bật/tắt")
-print("=" .. string.rep("=", 55))
