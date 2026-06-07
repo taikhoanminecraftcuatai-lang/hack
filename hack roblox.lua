@@ -1,6 +1,6 @@
---=========--
--- MINI GUI--
---=========--
+--========================
+-- MINI GUI - KHÔNG THANH TIÊU ĐỀ
+--========================
 local player = game.Players.LocalPlayer
 local TweenService = game:GetService("TweenService")
 
@@ -29,7 +29,6 @@ local iconCorner = Instance.new("UICorner")
 iconCorner.CornerRadius = UDim.new(1, 0)
 iconCorner.Parent = iconBtn
 
--- Hiệu ứng hover
 iconBtn.MouseEnter:Connect(function()
     TweenService:Create(iconBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(60, 60, 80)}):Play()
 end)
@@ -41,7 +40,7 @@ end)
 local mainFrame = Instance.new("Frame")
 mainFrame.Name = "MainFrame"
 mainFrame.Parent = screenGui
-mainFrame.Size = UDim2.new(0, 280, 0, 320)
+mainFrame.Size = UDim2.new(0, 260, 0, 320)
 mainFrame.Position = UDim2.new(0.02, 60, 0.5, -160)
 mainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 28)
 mainFrame.BackgroundTransparency = 0.1
@@ -60,12 +59,41 @@ mainStroke.Thickness = 1
 mainStroke.Transparency = 0.5
 mainStroke.Parent = mainFrame
 
+-- === NÚT ĐÓNG ===
+local closeBtn = Instance.new("TextButton")
+closeBtn.Name = "CloseBtn"
+closeBtn.Parent = mainFrame
+closeBtn.Size = UDim2.new(0, 30, 0, 30)
+closeBtn.Position = UDim2.new(1, -38, 0, 8)
+closeBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+closeBtn.BackgroundTransparency = 0.5
+closeBtn.Text = "✕"
+closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeBtn.TextSize = 14
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.BorderSizePixel = 0
+
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0, 8)
+closeCorner.Parent = closeBtn
+
+-- === TÊN GUI ===
+local title = Instance.new("TextLabel")
+title.Parent = mainFrame
+title.Size = UDim2.new(1, -50, 0, 30)
+title.Position = UDim2.new(0, 12, 0, 8)
+title.BackgroundTransparency = 1
+title.Text = "⚡ MINI TOOL"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.TextSize = 14
+title.Font = Enum.Font.GothamBold
+title.TextXAlignment = Enum.TextXAlignment.Left
 
 -- === KHU VỰC NỘI DUNG ===
 local content = Instance.new("ScrollingFrame")
 content.Parent = mainFrame
-content.Size = UDim2.new(1, -16, 1, -60)
-content.Position = UDim2.new(0, 8, 0, 50)
+content.Size = UDim2.new(1, -16, 1, -50)
+content.Position = UDim2.new(0, 8, 0, 42)
 content.BackgroundTransparency = 1
 content.CanvasSize = UDim2.new(0, 0, 0, 0)
 content.ScrollBarThickness = 4
@@ -76,8 +104,31 @@ layout.Parent = content
 layout.SortOrder = Enum.SortOrder.LayoutOrder
 layout.Padding = UDim.new(0, 8)
 
+-- === STATUS BAR ===
+local statusBar = Instance.new("Frame")
+statusBar.Parent = mainFrame
+statusBar.Size = UDim2.new(1, 0, 0, 24)
+statusBar.Position = UDim2.new(0, 0, 1, -24)
+statusBar.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+statusBar.BackgroundTransparency = 0.3
+statusBar.BorderSizePixel = 0
 
--- === HÀM TẠO NÚT (ĐỂ BẠN THÊM SAU) ===
+local statusCorner = Instance.new("UICorner")
+statusCorner.CornerRadius = UDim.new(0, 12)
+statusCorner.Parent = statusBar
+
+local statusText = Instance.new("TextLabel")
+statusText.Parent = statusBar
+statusText.Size = UDim2.new(1, -10, 1, 0)
+statusText.Position = UDim2.new(0, 8, 0, 0)
+statusText.BackgroundTransparency = 1
+statusText.Text = "● READY"
+statusText.TextColor3 = Color3.fromRGB(100, 255, 100)
+statusText.TextSize = 10
+statusText.Font = Enum.Font.Gotham
+statusText.TextXAlignment = Enum.TextXAlignment.Left
+
+-- === HÀM TẠO NÚT ===
 local function makeButton(text, icon, color, callback)
     local btn = Instance.new("TextButton")
     btn.Parent = content
