@@ -86,18 +86,6 @@ title.TextSize = 14
 title.Font = Enum.Font.GothamBold
 title.TextXAlignment = Enum.TextXAlignment.Left
 
--- NÚT ĐÓNG
-local closeBtn = Instance.new("TextButton")
-closeBtn.Name = "CloseBtn"
-closeBtn.Parent = header
-closeBtn.Size = UDim2.new(0, 32, 1, 0)
-closeBtn.Position = UDim2.new(1, -36, 0, 0)
-closeBtn.BackgroundTransparency = 1
-closeBtn.Text = "✕"
-closeBtn.TextColor3 = Color3.fromRGB(220, 80, 80)
-closeBtn.TextSize = 16
-closeBtn.Font = Enum.Font.GothamBold
-
 -- === KHU VỰC NỘI DUNG ===
 local content = Instance.new("ScrollingFrame")
 content.Parent = mainFrame
@@ -113,29 +101,6 @@ layout.Parent = content
 layout.SortOrder = Enum.SortOrder.LayoutOrder
 layout.Padding = UDim.new(0, 8)
 
--- === STATUS BAR ===
-local statusBar = Instance.new("Frame")
-statusBar.Parent = mainFrame
-statusBar.Size = UDim2.new(1, 0, 0, 24)
-statusBar.Position = UDim2.new(0, 0, 1, -24)
-statusBar.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
-statusBar.BackgroundTransparency = 0.3
-statusBar.BorderSizePixel = 0
-
-local statusCorner = Instance.new("UICorner")
-statusCorner.CornerRadius = UDim.new(0, 12)
-statusCorner.Parent = statusBar
-
-local statusText = Instance.new("TextLabel")
-statusText.Parent = statusBar
-statusText.Size = UDim2.new(1, -10, 1, 0)
-statusText.Position = UDim2.new(0, 8, 0, 0)
-statusText.BackgroundTransparency = 1
-statusText.Text = "● READY"
-statusText.TextColor3 = Color3.fromRGB(100, 255, 100)
-statusText.TextSize = 10
-statusText.Font = Enum.Font.Gotham
-statusText.TextXAlignment = Enum.TextXAlignment.Left
 
 -- === HÀM TẠO NÚT (ĐỂ BẠN THÊM SAU) ===
 local function makeButton(text, icon, color, callback)
