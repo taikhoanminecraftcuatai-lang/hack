@@ -1,6 +1,6 @@
---========================
--- MINI GUI + ICON (KÉO THẢ ĐƯỢC)
---========================
+--=========--
+-- MINI GUI--
+--=========--
 local player = game.Players.LocalPlayer
 local TweenService = game:GetService("TweenService")
 
@@ -60,31 +60,6 @@ mainStroke.Thickness = 1
 mainStroke.Transparency = 0.5
 mainStroke.Parent = mainFrame
 
--- === THANH TIÊU ĐỀ ===
-local header = Instance.new("Frame")
-header.Name = "Header"
-header.Parent = mainFrame
-header.Size = UDim2.new(1, 0, 0, 40)
-header.BackgroundColor3 = Color3.fromRGB(30, 30, 42)
-header.BackgroundTransparency = 0.2
-header.BorderSizePixel = 0
-header.Draggable = true
-header.Active = true
-
-local headerCorner = Instance.new("UICorner")
-headerCorner.CornerRadius = UDim.new(0, 12)
-headerCorner.Parent = header
-
-local title = Instance.new("TextLabel")
-title.Parent = header
-title.Size = UDim2.new(1, -50, 1, 0)
-title.Position = UDim2.new(0, 12, 0, 0)
-title.BackgroundTransparency = 1
-title.Text = "⚡ MINI TOOL"
-title.TextColor3 = Color3.fromRGB(255, 255, 255)
-title.TextSize = 14
-title.Font = Enum.Font.GothamBold
-title.TextXAlignment = Enum.TextXAlignment.Left
 
 -- === KHU VỰC NỘI DUNG ===
 local content = Instance.new("ScrollingFrame")
