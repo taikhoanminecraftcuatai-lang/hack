@@ -1,199 +1,92 @@
---========================
--- MINI GUI - KHÔNG THANH TIÊU ĐỀ
---========================
 local player = game.Players.LocalPlayer
-local TweenService = game:GetService("TweenService")
 
--- TẠO GUI CHÍNH
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "MiniGUI"
-screenGui.Parent = game.CoreGui
+local gui = Instance.new("ScreenGui")
+gui.Name = "MenuGui"
+gui.Parent = player:WaitForChild("PlayerGui")
 
--- === ICON MỞ GUI ===
-local iconBtn = Instance.new("TextButton")
-iconBtn.Name = "IconBtn"
-iconBtn.Parent = screenGui
-iconBtn.Size = UDim2.new(0, 50, 0, 50)
-iconBtn.Position = UDim2.new(0.02, 0, 0.5, -25)
-iconBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
-iconBtn.BackgroundTransparency = 0.1
-iconBtn.Text = "⚡"
-iconBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-iconBtn.TextSize = 24
-iconBtn.Font = Enum.Font.GothamBold
-iconBtn.BorderSizePixel = 0
-iconBtn.Draggable = true
-iconBtn.Active = true
+-- Nút mở
+local openBtn = Instance.new("TextButton")
+openBtn.Parent = gui
+openBtn.Size = UDim2.new(0,100,0,40)
+openBtn.Position = UDim2.new(0,10,0,10)
+openBtn.Text = "Mở Menu"
 
-local iconCorner = Instance.new("UICorner")
-iconCorner.CornerRadius = UDim.new(1, 0)
-iconCorner.Parent = iconBtn
+-- Khung menu
+local frame = Instance.new("Frame")
+frame.Parent = gui
+frame.Size = UDim2.new(0,300,0,200)
+frame.Position = UDim2.new(0.5,-150,0.5,-100)
+frame.Visible = false
 
-iconBtn.MouseEnter:Connect(function()
-    TweenService:Create(iconBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(60, 60, 80)}):Play()
-end)
-iconBtn.MouseLeave:Connect(function()
-    TweenService:Create(iconBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(35, 35, 45)}):Play()
-end)
-
--- === CỬA SỔ CHÍNH ===
-local mainFrame = Instance.new("Frame")
-mainFrame.Name = "MainFrame"
-mainFrame.Parent = screenGui
-mainFrame.Size = UDim2.new(0, 260, 0, 320)
-mainFrame.Position = UDim2.new(0.02, 60, 0.5, -160)
-mainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 28)
-mainFrame.BackgroundTransparency = 0.1
-mainFrame.Visible = false
-mainFrame.Draggable = true
-mainFrame.Active = true
-mainFrame.BorderSizePixel = 0
-
-local mainCorner = Instance.new("UICorner")
-mainCorner.CornerRadius = UDim.new(0, 12)
-mainCorner.Parent = mainFrame
-
-local mainStroke = Instance.new("UIStroke")
-mainStroke.Color = Color3.fromRGB(80, 80, 120)
-mainStroke.Thickness = 1
-mainStroke.Transparency = 0.5
-mainStroke.Parent = mainFrame
-
--- === NÚT ĐÓNG ===
+-- Nút đóng
 local closeBtn = Instance.new("TextButton")
-closeBtn.Name = "CloseBtn"
-closeBtn.Parent = mainFrame
-closeBtn.Size = UDim2.new(0, 30, 0, 30)
-closeBtn.Position = UDim2.new(1, -38, 0, 8)
-closeBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
-closeBtn.BackgroundTransparency = 0.5
-closeBtn.Text = "✕"
-closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-closeBtn.TextSize = 14
-closeBtn.Font = Enum.Font.GothamBold
-closeBtn.BorderSizePixel = 0
+closeBtn.Parent = frame
+closeBtn.Size = UDim2.new(0,30,0,30)
+closeBtn.Position = UDim2.new(1,-35,0,5)
+closeBtn.Text = "X"
 
-local closeCorner = Instance.new("UICorner")
-closeCorner.CornerRadius = UDim.new(0, 8)
-closeCorner.Parent = closeBtn
-
--- === TÊN GUI ===
+-- Tiêu đề
 local title = Instance.new("TextLabel")
-title.Parent = mainFrame
-title.Size = UDim2.new(1, -50, 0, 30)
-title.Position = UDim2.new(0, 12, 0, 8)
-title.BackgroundTransparency = 1
-title.Text = "⚡ MINI TOOL"
-title.TextColor3 = Color3.fromRGB(255, 255, 255)
-title.TextSize = 14
-title.Font = Enum.Font.GothamBold
-title.TextXAlignment = Enum.TextXAlignment.Left
+title.Parent = frame
+title.Size = UDim2.new(1,0,0,40)
+title.Text = "MENU"
 
--- === KHU VỰC NỘI DUNG ===
-local content = Instance.new("ScrollingFrame")
-content.Parent = mainFrame
-content.Size = UDim2.new(1, -16, 1, -50)
-content.Position = UDim2.new(0, 8, 0, 42)
-content.BackgroundTransparency = 1
-content.CanvasSize = UDim2.new(0, 0, 0, 0)
-content.ScrollBarThickness = 4
-content.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 120)
-
-local layout = Instance.new("UIListLayout")
-layout.Parent = content
-layout.SortOrder = Enum.SortOrder.LayoutOrder
-layout.Padding = UDim.new(0, 8)
-
--- === STATUS BAR ===
-local statusBar = Instance.new("Frame")
-statusBar.Parent = mainFrame
-statusBar.Size = UDim2.new(1, 0, 0, 24)
-statusBar.Position = UDim2.new(0, 0, 1, -24)
-statusBar.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
-statusBar.BackgroundTransparency = 0.3
-statusBar.BorderSizePixel = 0
-
-local statusCorner = Instance.new("UICorner")
-statusCorner.CornerRadius = UDim.new(0, 12)
-statusCorner.Parent = statusBar
-
-local statusText = Instance.new("TextLabel")
-statusText.Parent = statusBar
-statusText.Size = UDim2.new(1, -10, 1, 0)
-statusText.Position = UDim2.new(0, 8, 0, 0)
-statusText.BackgroundTransparency = 1
-statusText.Text = "● READY"
-statusText.TextColor3 = Color3.fromRGB(100, 255, 100)
-statusText.TextSize = 10
-statusText.Font = Enum.Font.Gotham
-statusText.TextXAlignment = Enum.TextXAlignment.Left
-
--- === HÀM TẠO NÚT ===
-local function makeButton(text, icon, color, callback)
-    local btn = Instance.new("TextButton")
-    btn.Parent = content
-    btn.Size = UDim2.new(1, -10, 0, 42)
-    btn.BackgroundColor3 = color or Color3.fromRGB(40, 40, 55)
-    btn.BackgroundTransparency = 0.2
-    btn.Text = "   " .. icon .. "  " .. text
-    btn.TextColor3 = Color3.fromRGB(240, 240, 240)
-    btn.TextSize = 13
-    btn.Font = Enum.Font.GothamSemibold
-    btn.TextXAlignment = Enum.TextXAlignment.Left
-    btn.BorderSizePixel = 0
-    
-    local btnCorner = Instance.new("UICorner")
-    btnCorner.CornerRadius = UDim.new(0, 8)
-    btnCorner.Parent = btn
-    
-    local iconLabel = Instance.new("TextLabel")
-    iconLabel.Parent = btn
-    iconLabel.Size = UDim2.new(0, 35, 1, 0)
-    iconLabel.BackgroundTransparency = 1
-    iconLabel.Text = icon
-    iconLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    iconLabel.TextSize = 16
-    iconLabel.Font = Enum.Font.Gotham
-    iconLabel.TextXAlignment = Enum.TextXAlignment.Center
-    
-    btn.MouseEnter:Connect(function()
-        TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundTransparency = 0.05, BackgroundColor3 = Color3.fromRGB(60, 60, 80)}):Play()
-    end)
-    btn.MouseLeave:Connect(function()
-        TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundTransparency = 0.2, BackgroundColor3 = color or Color3.fromRGB(40, 40, 55)}):Play()
-    end)
-    
-    if callback then
-        btn.MouseButton1Click:Connect(callback)
-    end
-    
-    return btn
-end
-
--- === CẬP NHẬT CANVAS ===
-local function updateCanvas()
-    task.wait(0.1)
-    content.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10)
-end
-
-layout.ChildAdded:Connect(updateCanvas)
-layout.ChildRemoved:Connect(updateCanvas)
-task.wait(0.2)
-updateCanvas()
-
--- === MỞ/ĐÓNG GUI ===
-closeBtn.MouseButton1Click:Connect(function()
-    mainFrame.Visible = false
-    statusText.Text = "● CLOSED"
-    task.wait(0.5)
-    statusText.Text = "● READY"
+-- Mở menu
+openBtn.MouseButton1Click:Connect(function()
+	frame.Visible = true
+	openBtn.Visible = false
 end)
 
-iconBtn.MouseButton1Click:Connect(function()
-    mainFrame.Visible = not mainFrame.Visible
-    if mainFrame.Visible then
-        statusText.Text = "● OPENED"
-        task.wait(0.5)
-        statusText.Text = "● READY"
-    end
+-- Đóng menu
+closeBtn.MouseButton1Click:Connect(function()
+	frame.Visible = false
+	openBtn.Visible = true
+end)
+local player = game.Players.LocalPlayer
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "AutoZGui"
+gui.Parent = player:WaitForChild("PlayerGui")
+
+-- Nút Auto Z
+local autoBtn = Instance.new("TextButton")
+autoBtn.Parent = gui
+autoBtn.Size = UDim2.new(0, 120, 0, 40)
+autoBtn.Position = UDim2.new(0, 20, 0, 100)
+autoBtn.Text = "Auto Z : OFF"
+
+-- Ô nhập thời gian
+local timeBox = Instance.new("TextBox")
+timeBox.Parent = gui
+timeBox.Size = UDim2.new(0, 60, 0, 40)
+timeBox.Position = UDim2.new(0, 150, 0, 100)
+timeBox.Text = "0.5"
+timeBox.PlaceholderText = "Giây"
+
+local autoZ = false
+
+-- Hàm kỹ năng Z
+local function SkillZ()
+	print("Dùng kỹ năng Z")
+	-- Code kỹ năng Z của mày ở đây
+end
+
+autoBtn.MouseButton1Click:Connect(function()
+	autoZ = not autoZ
+
+	if autoZ then
+		autoBtn.Text = "Auto Z : ON"
+
+		task.spawn(function()
+			while autoZ do
+				local delayTime = tonumber(timeBox.Text) or 0.5
+
+				SkillZ()
+
+				task.wait(delayTime)
+			end
+		end)
+	else
+		autoBtn.Text = "Auto Z : OFF"
+	end
 end)
