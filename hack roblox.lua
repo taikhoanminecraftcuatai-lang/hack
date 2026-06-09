@@ -1,92 +1,140 @@
+--==============================
+-- GUI KÉO THẢ + HÀM TẠO NÚT
+--==============================
 local player = game.Players.LocalPlayer
 
 local gui = Instance.new("ScreenGui")
-gui.Name = "MenuGui"
-gui.Parent = player:WaitForChild("PlayerGui")
+gui.Name = "DraggableGUI"
+gui.ResetOnSpawn = false
+gui.Parent = game.CoreGui
 
--- Nút mở
+-- NÚT MỞ
 local openBtn = Instance.new("TextButton")
+openBtn.Size = UDim2.new(0, 50, 0, 50)
+openBtn.Position = UDim2.new(0.8, 0, 0.8, 0)
+openBtn.Text = "📂"
+openBtn.TextSize = 24
+openBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
+openBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+openBtn.BorderSizePixel = 0
 openBtn.Parent = gui
-openBtn.Size = UDim2.new(0,100,0,40)
-openBtn.Position = UDim2.new(0,10,0,10)
-openBtn.Text = "Mở Menu"
+Instance.new("UICorner", openBtn).CornerRadius = UDim.new(1, 0)
 
--- Khung menu
-local frame = Instance.new("Frame")
-frame.Parent = gui
-frame.Size = UDim2.new(0,300,0,200)
-frame.Position = UDim2.new(0.5,-150,0.5,-100)
-frame.Visible = false
+-- MAIN FRAME
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 300, 0, 400)
+mainFrame.Position = UDim2.new(0.5, -150, 0.3, 0)
+mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+mainFrame.BackgroundTransparency = 1
+mainFrame.BorderSizePixel = 0
+mainFrame.Visible = false
+mainFrame.Parent = gui
+Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 12)
 
--- Nút đóng
+-- THANH TIÊU ĐỀ (KÉO ĐƯỢC)
+local titleBar = Instance.new("Frame")
+titleBar.Size = UDim2.new(1, 0, 0, 35)
+titleBar.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
+titleBar.BorderSizePixel = 0
+titleBar.Parent = mainFrame
+Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 12)
+
+local titleText = Instance.new("TextLabel")
+titleText.Size = UDim2.new(1, -40, 1, 0)
+titleText.Position = UDim2.new(0, 10, 0, 0)
+titleText.Text = "MENU"
+titleText.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleText.BackgroundTransparency = 1
+titleText.TextXAlignment = Enum.TextXAlignment.Left
+titleText.Font = Enum.Font.GothamBold
+titleText.TextSize = 16
+titleText.Parent = titleBar
+
+-- NÚT ĐÓNG (X)
 local closeBtn = Instance.new("TextButton")
-closeBtn.Parent = frame
-closeBtn.Size = UDim2.new(0,30,0,30)
-closeBtn.Position = UDim2.new(1,-35,0,5)
-closeBtn.Text = "X"
+closeBtn.Size = UDim2.new(0, 30, 0, 30)
+closeBtn.Position = UDim2.new(1, -35, 0, 2.5)
+closeBtn.Text = "✕"
+closeBtn.TextSize = 18
+closeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeBtn.BorderSizePixel = 0
+closeBtn.Parent = titleBar
+Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(1, 0)
 
--- Tiêu đề
-local title = Instance.new("TextLabel")
-title.Parent = frame
-title.Size = UDim2.new(1,0,0,40)
-title.Text = "MENU"
+-- CONTAINER CHỨA CÁC NÚT
+local container = Instance.new("ScrollingFrame")
+container.Size = UDim2.new(1, -10, 1, -50)
+container.Position = UDim2.new(0, 5, 0, 45)
+container.BackgroundTransparency = 1
+container.CanvasSize = UDim2.new(0, 0, 0, 0)
+container.ScrollBarThickness = 6
+container.Parent = mainFrame
 
--- Mở menu
-openBtn.MouseButton1Click:Connect(function()
-	frame.Visible = true
-	openBtn.Visible = false
-end)
+local listLayout = Instance.new("UIListLayout")
+listLayout.Padding = UDim.new(0, 8)
+listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+listLayout.Parent = container
 
--- Đóng menu
-closeBtn.MouseButton1Click:Connect(function()
-	frame.Visible = false
-	openBtn.Visible = true
-end)
-local player = game.Players.LocalPlayer
-
-local gui = Instance.new("ScreenGui")
-gui.Name = "AutoZGui"
-gui.Parent = player:WaitForChild("PlayerGui")
-
--- Nút Auto Z
-local autoBtn = Instance.new("TextButton")
-autoBtn.Parent = gui
-autoBtn.Size = UDim2.new(0, 120, 0, 40)
-autoBtn.Position = UDim2.new(0, 20, 0, 100)
-autoBtn.Text = "Auto Z : OFF"
-
--- Ô nhập thời gian
-local timeBox = Instance.new("TextBox")
-timeBox.Parent = gui
-timeBox.Size = UDim2.new(0, 60, 0, 40)
-timeBox.Position = UDim2.new(0, 150, 0, 100)
-timeBox.Text = "0.5"
-timeBox.PlaceholderText = "Giây"
-
-local autoZ = false
-
--- Hàm kỹ năng Z
-local function SkillZ()
-	print("Dùng kỹ năng Z")
-	-- Code kỹ năng Z của mày ở đây
+-- ==================== HÀM TẠO NÚT ====================
+function makeButton(buttonName, callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, -10, 0, 40)
+    btn.Text = buttonName
+    btn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.BorderSizePixel = 0
+    btn.Font = Enum.Font.Gotham
+    btn.TextSize = 14
+    btn.Parent = container
+    
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+    btn.MouseButton1Click:Connect(callback)
+    
+    -- Cập nhật thanh cuộn
+    task.wait(0.05)
+    container.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y)
 end
 
-autoBtn.MouseButton1Click:Connect(function()
-	autoZ = not autoZ
+-- ==================== KÉO THẢ ====================
+local dragging = false
+local dragStartPos = nil
+local frameStartPos = nil
 
-	if autoZ then
-		autoBtn.Text = "Auto Z : ON"
+titleBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStartPos = Vector2.new(input.Position.X, input.Position.Y)
+        frameStartPos = mainFrame.Position
+    end
+end)
 
-		task.spawn(function()
-			while autoZ do
-				local delayTime = tonumber(timeBox.Text) or 0.5
+titleBar.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = false
+    end
+end)
 
-				SkillZ()
+game:GetService("UserInputService").InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = Vector2.new(input.Position.X, input.Position.Y) - dragStartPos
+        mainFrame.Position = UDim2.new(
+            frameStartPos.X.Scale,
+            frameStartPos.X.Offset + delta.X,
+            frameStartPos.Y.Scale,
+            frameStartPos.Y.Offset + delta.Y
+        )
+    end
+end)
 
-				task.wait(delayTime)
-			end
-		end)
-	else
-		autoBtn.Text = "Auto Z : OFF"
-	end
+-- ==================== SỰ KIỆN MỞ/ĐÓNG ====================
+openBtn.MouseButton1Click:Connect(function()
+    mainFrame.Visible = true
+    mainFrame.BackgroundTransparency = 0
+    openBtn.Visible = false
+end)
+
+closeBtn.MouseButton1Click:Connect(function()
+    mainFrame.Visible = false
+    openBtn.Visible = true
 end)
